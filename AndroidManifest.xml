@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:versionCode="12101"
+    android:versionName="1.21.1">
+
+    <supports-screens
+        android:anyDensity="true"
+        android:largeScreens="true"
+        android:normalScreens="true"
+        android:smallScreens="true"
+        android:xlargeScreens="true" />
+
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
+
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- <uses-permission android:name="android.permission.BLUETOOTH" /> -->
+    <!-- <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" /> -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.RECEIVE_MMS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.READ_SETTINGS"/>
+    <uses-permission android:name="android.permission.READ_LOGS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="com.google.android.glass.permission.DEVELOPMENT" />
+
+
+
+    <application
+        android:icon="@drawable/app_icon"
+        android:label="KDE Connect"
+        android:supportsRtl="true"
+        android:allowBackup="false"
+        android:theme="@style/KdeConnectTheme"
+        android:name="com.cato.connect.MyApplication">
+
+        <receiver
+            android:name="com.android.mms.transaction.PushReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_WAP_PUSH">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.WAP_PUSH_DELIVER" />
+
+                <data android:mimeType="application/vnd.wap.mms-message" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name="com.android.mms.transaction.TransactionService"
+            android:enabled="true"
+            android:exported="true" />
+
+        <service
+            android:name="com.cato.connect.BackgroundService"
+            android:foregroundServiceType="connectedDevice"
+            android:icon="@drawable/icon"
+            android:enabled="true" />
+        <service
+            android:name="com.cato.connect.LiveCardService"
+            android:foregroundServiceType="connectedDevice"
+            android:icon="@drawable/icon"
+            android:enabled="true" />
+
+        <activity
+            android:name="com.cato.connect.UserInterface.MainActivity"
+            android:exported="true"
+            android:theme="@style/KdeConnectTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="com.google.android.glass.action.VOICE_TRIGGER" />
+            </intent-filter>
+            <meta-data
+                android:name="com.google.android.glass.VoiceTrigger"
+                android:resource="@xml/voice_trigger_start" />
+        </activity>
+        <activity
+            android:name=".UserInterface.MediaActivity"
+            android:label="Media Menu"
+            android:exported="true"
+            android:theme="@style/MenuTheme"/>
+        <activity
+            android:name=".UserInterface.NotificationActivity"
+            android:label="Notifications"
+            android:exported="true"
+            android:theme="@style/KdeConnectTheme"/>
+        <activity
+            android:name="com.cato.connect.UserInterface.PluginSettingsActivity"
+            android:label="@string/device_menu_plugins"
+            android:exported="false"
+            android:parentActivityName="com.cato.connect.UserInterface.MainActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.MainActivity" />
+        </activity>
+        <activity
+            android:name="com.cato.connect.UserInterface.CustomDevicesActivity"
+            android:label="@string/custom_devices_settings"
+            android:exported="false"
+            android:parentActivityName="com.cato.connect.UserInterface.MainActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.MainActivity" />
+        </activity>
+        <activity
+            android:name="com.cato.connect.Plugins.SharePlugin.SendFileActivity"
+            android:label="KDE Connect"
+            android:exported="true"
+            android:parentActivityName="com.cato.connect.UserInterface.MainActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.MainActivity" />
+        </activity>
+
+        <receiver android:name="com.cato.connect.KdeConnectBroadcastReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_REPLACED" />
+
+                <data
+                    android:host="kdeconnect"
+                    android:path="/"
+                    android:scheme="package" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.net.wifi.WIFI_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <activity
+            android:name="com.cato.connect.Plugins.FindMyPhonePlugin.FindMyPhoneActivity"
+            android:configChanges="orientation|screenSize"
+            android:excludeFromRecents="true"
+            android:label="@string/findmyphone_title"
+            android:launchMode="singleInstance" />
+
+        <receiver android:name="com.cato.connect.Plugins.FindMyPhonePlugin.FindMyPhoneReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.cato.connect.Plugins.FindMyPhonePlugin.foundIt" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Plugin-related activities and services -->
+
+        <activity
+            android:name="com.cato.connect.Plugins.ClibpoardPlugin.ClipboardFloatingActivity"
+            android:theme="@style/KdeConnectTheme"
+            android:excludeFromRecents="true"/>
+
+        <activity
+            android:name="com.cato.connect.Plugins.MprisPlugin.MprisActivity"
+            android:label="@string/open_mpris_controls"
+            android:launchMode="singleTop"
+            android:theme="@style/KdeConnectTheme"
+            android:parentActivityName="com.cato.connect.UserInterface.MainActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.MainActivity" />
+        </activity>
+
+        <receiver android:name="com.cato.connect.Plugins.MprisPlugin.MprisMediaNotificationReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
+        <activity
+            android:name="com.cato.connect.Plugins.RunCommandPlugin.RunCommandActivity"
+            android:label="@string/pref_plugin_runcommand"
+            android:exported="false"
+            android:parentActivityName="com.cato.connect.UserInterface.MainActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.MainActivity" />
+        </activity>
+        <activity
+            android:name="com.cato.connect.Plugins.RunCommandPlugin.RunCommandWidgetDeviceSelector"
+            android:excludeFromRecents="true"
+            android:label="@string/pref_plugin_runcommand"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:screenOrientation="user"
+            android:theme="@style/KdeConnectTheme" />
+
+        <service
+            android:name="com.cato.connect.Plugins.RunCommandPlugin.RunCommandWidgetDataProviderService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
+
+        <activity android:name="com.cato.connect.Plugins.RunCommandPlugin.RunCommandUrlActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="runcommand"
+                    android:scheme="kdeconnect" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="com.cato.connect.Plugins.BigscreenPlugin.BigscreenActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:label="@string/pref_plugin_bigscreen"
+            android:exported="true"
+            android:parentActivityName="com.cato.connect.UserInterface.MainActivity"
+            android:windowSoftInputMode="stateHidden|adjustResize">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.MainActivity" />
+        </activity>
+        <activity
+            android:name="com.cato.connect.Plugins.MousePadPlugin.MousePadActivity"
+            android:label="@string/pref_plugin_mousepad"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:parentActivityName="com.cato.connect.UserInterface.MainActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.MainActivity" />
+        </activity>
+        <activity
+            android:name="com.cato.connect.Plugins.MousePadPlugin.ComposeSendActivity"
+            android:label="Compose send"
+            android:exported="false"
+            android:parentActivityName="com.cato.connect.Plugins.MousePadPlugin.MousePadActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.Plugins.MousePadPlugin.MousePadActivity" />
+        </activity>
+        <activity
+            android:name="com.cato.connect.Plugins.MousePadPlugin.SendKeystrokesToHostActivity"
+            android:label="@string/pref_plugin_mousepad_send_keystrokes"
+            android:exported="false"
+            android:parentActivityName="com.cato.connect.UserInterface.MainActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.MainActivity" />
+            <!-- Accept data with "text/x-keystrokes" to send the text to the connected host and emulate keystrokes -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/x-keystrokes"/>
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="com.cato.connect.Plugins.PresenterPlugin.PresenterActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:label="@string/pref_plugin_presenter"
+            android:exported="false"
+            android:parentActivityName="com.cato.connect.UserInterface.MainActivity"
+            android:windowSoftInputMode="stateHidden|adjustResize">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.MainActivity" />
+        </activity>
+        <activity
+            android:name="com.cato.connect.Plugins.SharePlugin.ShareActivity"
+            android:exported="true"
+            android:label="@string/manifest_label_share">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="*/*" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.service.chooser.chooser_target_service"
+                android:value="com.cato.connect.Plugins.SharePlugin.ShareChooserTargetService" />
+        </activity>
+
+        <receiver android:name="com.cato.connect.Plugins.SharePlugin.ShareBroadcastReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.cato.connect.Plugins.SharePlugin.CancelShare" />
+            </intent-filter>
+        </receiver>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.cato.connect.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/fileprovider_paths" />
+        </provider>
+
+        <service
+            android:name="com.cato.connect.Plugins.NotificationsPlugin.NotificationReceiver"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name="com.cato.connect.Plugins.SharePlugin.ShareChooserTargetService"
+            android:exported="true"
+            android:permission="android.permission.BIND_CHOOSER_TARGET_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.chooser.ChooserTargetService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name="com.cato.connect.Plugins.MouseReceiverPlugin.MouseReceiverService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/mouse_receiver_service" />
+        </service>
+
+        <activity
+            android:name="com.cato.connect.Plugins.NotificationsPlugin.NotificationFilterActivity"
+            android:label="@string/title_activity_notification_filter"
+            android:parentActivityName="com.cato.connect.UserInterface.PluginSettingsActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.PluginSettingsActivity" />
+        </activity>
+
+        <activity android:name="com.cato.connect.Plugins.PhotoPlugin.PhotoActivity" />
+
+        <activity
+            android:name="com.cato.connect.UserInterface.TrustedNetworksActivity"
+            android:label="@string/trusted_networks"
+            android:parentActivityName="com.cato.connect.UserInterface.MainActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.MainActivity" />
+        </activity>
+
+        <activity
+            android:name="com.cato.connect.UserInterface.About.EasterEggActivity"
+            android:label="@string/easter_egg"
+            android:parentActivityName="com.cato.connect.UserInterface.MainActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.MainActivity" />
+        </activity>
+
+        <activity
+            android:name="com.cato.connect.UserInterface.About.AboutKDEActivity"
+            android:label="@string/about_kde"
+            android:parentActivityName="com.cato.connect.UserInterface.MainActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.MainActivity" />
+        </activity>
+
+        <activity
+            android:name="com.cato.connect.UserInterface.About.LicensesActivity"
+            android:label="@string/licenses"
+            android:parentActivityName="com.cato.connect.UserInterface.MainActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.cato.connect.UserInterface.MainActivity" />
+        </activity>
+
+        <service
+            android:name="com.cato.connect.Plugins.ClibpoardPlugin.ClipboardTileService"
+            android:icon="@drawable/ic_baseline_content_paste_24"
+            android:exported="true"
+            android:label="@string/send_clipboard"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service android:name="com.cato.connect.Plugins.RunCommandPlugin.RunCommandControlsProviderService"
+            android:label="@string/kde_connect"
+            android:exported="true"
+            android:permission="android.permission.BIND_CONTROLS">
+            <intent-filter>
+                <action android:name="android.service.controls.ControlsProviderService" />
+            </intent-filter>
+        </service>
+    </application>
+
+</manifest>

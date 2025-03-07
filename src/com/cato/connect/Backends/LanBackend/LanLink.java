@@ -1,0 +1,297 @@
+/*
+ * SPDX-FileCopyrightText: 2014 Albert Vaca Cintora <albertvaka@gmail.com>
+ *
+ * SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
+*/
+
+package com.cato.connect.Backends.LanBackend;
+
+import android.content.Context;
+import android.util.Log;
+
+import androidx.annotation.WorkerThread;
+
+import org.conscrypt.Conscrypt;
+import org.json.JSONObject;
+import com.cato.connect.Backends.BaseLink;
+import com.cato.connect.Backends.BasePairingHandler;
+import com.cato.connect.Device;
+import com.cato.connect.Helpers.SecurityHelpers.SslHelper;
+import com.cato.connect.Helpers.ThreadHelper;
+import com.cato.connect.NetworkPacket;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.nio.channels.NotYetConnectedException;
+import java.security.KeyStore;
+import java.security.SecureRandom;
+import java.security.Security;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLHandshakeException;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+
+import kotlin.text.Charsets;
+
+public class LanLink extends BaseLink {
+
+    public interface LinkDisconnectedCallback {
+        void linkDisconnected(LanLink brokenLink);
+    }
+
+    public enum ConnectionStarted {
+        Locally, Remotely
+    }
+
+    private ConnectionStarted connectionSource; // If the other device sent me a broadcast,
+                                                // I should not close the connection with it
+                                                  // because it's probably trying to find me and
+                                                  // potentially ask for pairing.
+
+    private volatile SSLSocket socket = null;
+
+    private final LinkDisconnectedCallback callback;
+
+    @Override
+    public void disconnect() {
+        Log.i("LanLink/Disconnect","socket:"+ socket.hashCode());
+        try {
+            socket.close();
+        } catch (IOException e) {
+            Log.e("LanLink", "Error", e);
+        }
+    }
+
+    //Returns the old socket
+    public SSLSocket reset(final SSLSocket newSocket, ConnectionStarted connectionSource) throws IOException {
+        SSLSocket oldSocket = socket;
+        socket = newSocket;
+
+        this.connectionSource = connectionSource;
+
+        if (oldSocket != null) {
+            oldSocket.close(); //This should cancel the readThread
+        }
+
+        //Log.e("LanLink", "Start listening");
+        //Create a thread to take care of incoming data for the new socket
+        ThreadHelper.execute(() -> {
+            try {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(newSocket.getInputStream(), Charsets.UTF_8));
+                while (true) {
+                    String packet;
+                    try {
+                        packet = reader.readLine();
+                    } catch (SocketTimeoutException e) {
+                        continue;
+                    }
+                    if (packet == null) {
+                        throw new IOException("End of stream");
+                    }
+                    if (packet.isEmpty()) {
+                        continue;
+                    }
+                    NetworkPacket np = NetworkPacket.unserialize(packet);
+                    receivedNetworkPacket(np);
+                }
+            } catch (Exception e) {
+                Log.i("LanLink", "Socket closed: " + newSocket.hashCode() + ". Reason: " + e.getMessage());
+                try { Thread.sleep(300); } catch (InterruptedException ignored) {} // Wait a bit because we might receive a new socket meanwhile
+                boolean thereIsaANewSocket = (newSocket != socket);
+                if (!thereIsaANewSocket) {
+                    Log.i("LanLink", "Socket closed and there's no new socket, disconnecting device");
+                    callback.linkDisconnected(LanLink.this);
+                }
+            }
+        });
+
+        return oldSocket;
+    }
+
+    public LanLink(Context context, String deviceId, LanLinkProvider linkProvider, SSLSocket socket, ConnectionStarted connectionSource) throws IOException {
+        super(context, deviceId, linkProvider);
+        callback = linkProvider;
+        reset(socket, connectionSource);
+    }
+
+
+    @Override
+    public String getName() {
+        return "LanLink";
+    }
+
+    @Override
+    public BasePairingHandler getPairingHandler(Device device, BasePairingHandler.PairingHandlerCallback callback) {
+        return new LanPairingHandler(device, callback);
+    }
+
+    //Blocking, do not call from main thread
+    @WorkerThread
+    @Override
+    public boolean sendPacket(NetworkPacket np, final Device.SendPacketStatusCallback callback) {
+        if (socket == null) {
+            Log.e("KDE/sendPacket", "Not yet connected");
+            callback.onFailure(new NotYetConnectedException());
+            return false;
+        }
+
+        try {
+
+            //Prepare socket for the payload
+            final ServerSocket server;
+            if (np.hasPayload()) {
+                server = LanLinkProvider.openServerSocketOnFreePort(LanLinkProvider.PAYLOAD_TRANSFER_MIN_PORT);
+                JSONObject payloadTransferInfo = new JSONObject();
+                payloadTransferInfo.put("port", server.getLocalPort());
+                np.setPayloadTransferInfo(payloadTransferInfo);
+            } else {
+                server = null;
+            }
+
+            //Log.e("LanLink/sendPacket", np.getType());
+
+            //Send body of the network packet
+            try {
+                OutputStream writer = socket.getOutputStream();
+                writer.write(np.serialize().getBytes(Charsets.UTF_8));
+                writer.flush();
+            } catch (Exception e) {
+                disconnect(); //main socket is broken, disconnect
+                throw e;
+            }
+
+            //Send payload
+            if (server != null) {
+                Socket payloadSocket = null;
+                OutputStream outputStream = null;
+                InputStream inputStream;
+                try {
+                    //Wait a maximum of 10 seconds for the other end to establish a connection with our socket, close it afterwards
+                    server.setSoTimeout(10*1000);
+
+                    payloadSocket = server.accept();
+
+                    //Convert to SSL if needed
+                    payloadSocket = SslHelper.convertToSslSocket(context, payloadSocket, getDeviceId(), true, false);
+                    fixSocket(payloadSocket);
+
+                    outputStream = payloadSocket.getOutputStream();
+                    inputStream = np.getPayload().getInputStream();
+
+                    Log.i("KDE/LanLink", "Beginning to send payload");
+                    byte[] buffer = new byte[4096];
+                    int bytesRead;
+                    long size = np.getPayloadSize();
+                    long progress = 0;
+                    long timeSinceLastUpdate = -1;
+                    while (!np.isCanceled() && (bytesRead = inputStream.read(buffer)) != -1) {
+                        //Log.e("ok",""+bytesRead);
+                        progress += bytesRead;
+                        outputStream.write(buffer, 0, bytesRead);
+                        if (size > 0) {
+                            if (timeSinceLastUpdate + 500 < System.currentTimeMillis()) { //Report progress every half a second
+                                long percent = ((100 * progress) / size);
+                                callback.onProgressChanged((int) percent);
+                                timeSinceLastUpdate = System.currentTimeMillis();
+                            }
+                        }
+                    }
+                    outputStream.flush();
+                    Log.i("KDE/LanLink", "Finished sending payload ("+progress+" bytes written)");
+                } catch(SSLHandshakeException e) {
+                    // The exception can be due to several causes. "Connection closed by peer" seems to be a common one.
+                    // If we could distinguish different cases we could react differently for some of them, but I haven't found how.
+                    Log.e("sendPacket","Payload SSLSocket failed");
+                    e.printStackTrace();
+                } catch(SocketTimeoutException e) {
+                    Log.e("LanLink", "Socket for payload in packet " + np.getType() + " timed out. The other end didn't fetch the payload.");
+                } finally {
+                    try { server.close(); } catch (Exception ignored) { }
+                    try { payloadSocket.close(); } catch (Exception ignored) { }
+                    np.getPayload().close();
+                    try { outputStream.close(); } catch (Exception ignored) { }
+                }
+            }
+
+            if (!np.isCanceled()) {
+                callback.onSuccess();
+            }
+            return true;
+        } catch (Exception e) {
+            if (callback != null) {
+                callback.onFailure(e);
+            }
+            return false;
+        } finally  {
+            //Make sure we close the payload stream, if any
+            if (np.hasPayload()) {
+                np.getPayload().close();
+            }
+        }
+    }
+
+    private void receivedNetworkPacket(NetworkPacket np) {
+
+        if (np.hasPayloadTransferInfo()) {
+            Socket payloadSocket = new Socket();
+            try {
+                int tcpPort = np.getPayloadTransferInfo().getInt("port");
+                InetSocketAddress deviceAddress = (InetSocketAddress) socket.getRemoteSocketAddress();
+                payloadSocket.connect(new InetSocketAddress(deviceAddress.getAddress(), tcpPort));
+                payloadSocket = SslHelper.convertToSslSocket(context, payloadSocket, getDeviceId(), true, true);
+                fixSocket(payloadSocket);
+                np.setPayload(new NetworkPacket.Payload(payloadSocket, np.getPayloadSize()));
+            } catch (Exception e) {
+                try { payloadSocket.close(); } catch(Exception ignored) { }
+                Log.e("KDE/LanLink", "Exception connecting to payload remote socket", e);
+            }
+
+        }
+
+        packetReceived(np);
+    }
+
+    @Override
+    public boolean linkShouldBeKeptAlive() {
+
+        return true;    //FIXME: Current implementation is broken, so for now we will keep links always established
+
+        //We keep the remotely initiated connections, since the remotes require them if they want to request
+        //pairing to us, or connections that are already paired.
+        //return (connectionSource == ConnectionStarted.Remotely);
+
+    }
+
+    private void fixSocket(Socket socket) {
+        try {
+            Security.insertProviderAt(Conscrypt.newProvider(), 1);
+            if (socket instanceof SSLSocket) {
+                SSLSocket sslSocket = (SSLSocket) socket;
+
+                // Create a custom SSL context that enables multiple TLS protocols
+                TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
+                        TrustManagerFactory.getDefaultAlgorithm());
+                trustManagerFactory.init((KeyStore) null);
+                TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
+
+                // Try to enable TLS protocols manually
+                SSLContext sslContext = SSLContext.getInstance("TLS", "Conscrypt");
+                sslContext.init(null, trustManagers, new SecureRandom());
+
+                sslSocket.setEnabledProtocols(new String[]{"TLSv1.2", "TLSv1.3"});
+                sslSocket.setSSLParameters(sslContext.getDefaultSSLParameters());
+            }
+        } catch (Exception e) {
+            Log.e("LanLink", "Exception", e);
+        }
+    }
+}

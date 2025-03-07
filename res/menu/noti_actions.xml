@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/menu_item_1"
+        android:title="Dismiss"
+        android:icon="@drawable/ic_close"/>
+    <item
+        android:id="@+id/menu_item_2"
+        android:title="" />
+    <item
+        android:id="@+id/menu_item_3"
+        android:title="" />
+    <item
+        android:id="@+id/menu_item_4"
+        android:title="" />
+    <item
+        android:id="@+id/menu_item_5"
+        android:title="Reply"
+        android:icon="@drawable/ic_reply"/>
+</menu>
