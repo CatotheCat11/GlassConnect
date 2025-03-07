@@ -11,17 +11,25 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.util.Base64;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
 import com.cato.connect.Helpers.NotificationHelper;
+import com.cato.connect.LiveCardService;
 import com.cato.connect.NetworkPacket;
 import com.cato.connect.Plugins.Plugin;
 import com.cato.connect.Plugins.PluginFactory;
 import com.cato.connect.UserInterface.MainActivity;
 import com.cato.connect.R;
+
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
 
 @PluginFactory.LoadablePlugin
 public class PingPlugin extends Plugin {
@@ -80,6 +88,26 @@ public class PingPlugin extends Plugin {
 
         NotificationHelper.notifyCompat(notificationManager, id, noti);
 
+        JSONObject notiObject = new JSONObject();
+        try {
+            Log.d("NotificationsPlugin", "Creating notification object");
+            notiObject.put("title", device.getName());
+            notiObject.put("text", message);
+            notiObject.put("appName", "KDE Connect");
+            notiObject.put("icon", bitmapToString(BitmapFactory.decodeResource(context.getResources(), R.drawable.app_icon)));
+            notiObject.put("time", System.currentTimeMillis());
+            notiObject.put("requestReplyId", "");
+            notiObject.put("deviceId", device.getDeviceId());
+            notiObject.put("key", id);
+            Log.d("NotificationsPlugin", "Notification object created");
+            LiveCardService.notificationList.put(notiObject);
+            Log.d("NotificationsPlugin", "Notification added to list");
+            LiveCardService.postUpdate(true);
+            Log.d("NotificationsPlugin", "Service notification update called");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         return true;
 
     }
@@ -114,6 +142,14 @@ public class PingPlugin extends Plugin {
     @Override
     public String[] getOutgoingPacketTypes() {
         return new String[]{PACKET_TYPE_PING};
+    }
+
+    public String bitmapToString(Bitmap bitmap){
+        ByteArrayOutputStream baos=new  ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG,100, baos);
+        byte [] b=baos.toByteArray();
+        String temp= Base64.encodeToString(b, Base64.DEFAULT);
+        return temp;
     }
 
 }
