@@ -110,6 +110,11 @@
             android:exported="true"
             android:theme="@style/MenuTheme"/>
         <activity
+            android:name=".UserInterface.CardNotiActivity"
+            android:label="Notification Menu"
+            android:exported="true"
+            android:theme="@style/MenuTheme"/>
+        <activity
             android:name=".UserInterface.NotificationActivity"
             android:label="Notifications"
             android:exported="true"
