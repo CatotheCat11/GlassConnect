@@ -10,11 +10,14 @@ import static com.cato.connect.ImageRequest.makeImageRequest;
 
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.util.Base64;
@@ -23,6 +26,7 @@ import android.widget.RemoteViews;
 import android.os.Handler;
 
 import com.cato.connect.Plugins.MprisPlugin.MprisPlugin;
+import com.cato.connect.UserInterface.CardNotiActivity;
 import com.cato.connect.UserInterface.MediaActivity;
 import com.cato.connect.UserInterface.NotificationActivity;
 import com.google.android.glass.eye.EyeGesture;
@@ -36,6 +40,8 @@ import okhttp3.OkHttpClient;
 
 public class LiveCardService extends Service {
     public static LiveCardService sInstance;
+
+    public static boolean notiGlanceEnabled = false;
 
     private static final String NOTI_CARD_TAG = "NotificationCard";
     private static final String MEDIA_CARD_TAG = "MediaCard";
@@ -51,7 +57,7 @@ public class LiveCardService extends Service {
             new UpdateMediaCardRunnable();
 
     public static JSONArray notificationList;
-    private EyeGestureManager mEyeGestureManager;
+    private EyeGestureManager mEyeGestureManager = null;
     private EyeGestureManager.Listener mEyeGestureListener;
     private static Integer lastNoti = -1;
     private static Boolean newNoti = false;
@@ -140,29 +146,34 @@ public class LiveCardService extends Service {
     }
 
     private void setupEyeGestures() {
-        GestureIds mGestureIds = new GestureIds();
+        notiGlanceEnabled = isNotificationGlanceEnabled(getContentResolver());
+        if (notiGlanceEnabled) {
+            GestureIds mGestureIds = new GestureIds();
 
-        mEyeGestureManager = EyeGestureManager.from(this);
+            mEyeGestureManager = EyeGestureManager.from(this);
 
-        mEyeGestureListener = new EyeGestureManager.Listener(){
-            public void onDetected(EyeGesture gesture) {
-                Log.i("EyeGestureListener", "Gesture: " + gesture.getId());
+            mEyeGestureListener = new EyeGestureManager.Listener(){
+                public void onDetected(EyeGesture gesture) {
+                    Log.i("EyeGestureListener", "Gesture: " + gesture.getId());
 
-                int id = gesture.getId();
+                    int id = gesture.getId();
 
-                if ((id == mGestureIds.LOOK_AT_SCREEN_ID || id == mGestureIds.LOOK_AWAY_FROM_SCREEN_ID) && lastNoti != -1) {
-                    Log.d("EyeGesture", "Screen");
-                    Intent notiIntent = new Intent(getApplicationContext(), NotificationActivity.class);
-                    notiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
-                            Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    notiIntent.putExtra("notiList", notificationList.toString());
-                    notiIntent.putExtra("lastNoti", (int) lastNoti);
-                    lastNoti = -1;
-                    startActivity(notiIntent);
-                    mEyeGestureManager.unregister(EyeGesture.LOOK_AT_SCREEN, mEyeGestureListener);
+                    if ((id == mGestureIds.LOOK_AT_SCREEN_ID || id == mGestureIds.LOOK_AWAY_FROM_SCREEN_ID) && lastNoti != -1) {
+                        Log.d("EyeGesture", "Screen");
+                        Intent notiIntent = new Intent(getApplicationContext(), NotificationActivity.class);
+                        notiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
+                                Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        notiIntent.putExtra("notiList", notificationList.toString());
+                        notiIntent.putExtra("lastNoti", (int) lastNoti);
+                        lastNoti = -1;
+                        startActivity(notiIntent);
+                        if (mEyeGestureManager != null) {
+                            mEyeGestureManager.unregister(EyeGesture.LOOK_AT_SCREEN, mEyeGestureListener);
+                        }
+                    }
                 }
-            }
-        };
+            };
+        }
     }
     public static void showNoti() { //TODO: test, should open new noti when screen turned on
         if (lastNoti != -1) {
@@ -178,7 +189,9 @@ public class LiveCardService extends Service {
 
     @Override
     public void onDestroy() {
-        mEyeGestureManager.unregister(EyeGesture.LOOK_AT_SCREEN, mEyeGestureListener);
+        if (mEyeGestureManager != null) {
+            mEyeGestureManager.unregister(EyeGesture.LOOK_AT_SCREEN, mEyeGestureListener);
+        }
         if (mNotiCard != null && mNotiCard.isPublished()) {
 
             mNotiCard.unpublish();
@@ -235,20 +248,31 @@ public class LiveCardService extends Service {
                 if (!mPowerManager.isScreenOn() && newNoti) {
                     lastNoti = notificationList.length() - 1;
                     newNoti = false;
-                    mEyeGestureManager.register(EyeGesture.LOOK_AT_SCREEN, mEyeGestureListener);
+                    if (mEyeGestureManager != null && notiGlanceEnabled) {
+                        mEyeGestureManager.register(EyeGesture.LOOK_AT_SCREEN, mEyeGestureListener);
+                    }
                 }
                 Log.d(NOTI_CARD_TAG, "Updating LiveCard");
                 Log.d(NOTI_CARD_TAG, "Notification count: " + notificationList.length());
                 if (notificationList.length() == 0) {
-                    //TODO: set same intent as initial intent
+                    Intent notiIntent = new Intent(getApplicationContext(), NotificationActivity.class);
+                    notiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
+                            Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    mNotiCard.setAction(PendingIntent.getActivity(
+                            getApplicationContext(), 0, notiIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
                     mNotiCardView = new CardBuilder(getApplicationContext(), CardBuilder.Layout.TEXT)
                             .setText("No notifications")
                             .setFootnote("0 items")
                             .setAttributionIcon(R.drawable.livecardicon)
                             .getRemoteViews();
                 } else if (notificationList.length() == 1) {
-                    //TODO: set intent to open actions menu
                     try {
+                        Intent notiIntent = new Intent(getApplicationContext(), CardNotiActivity.class);
+                        notiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
+                                Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        notiIntent.putExtra("notiObj", notificationList.getJSONObject(0).toString());
+                        mNotiCard.setAction(PendingIntent.getActivity(
+                                getApplicationContext(), 0, notiIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
                         String title = notificationList.getJSONObject(0).optString("title");
                         String text = notificationList.getJSONObject(0).optString("text");
                         String appName = notificationList.getJSONObject(0).optString("appName");
@@ -415,5 +439,24 @@ public class LiveCardService extends Service {
                 }
             });
         }
+    }
+    public static boolean isNotificationGlanceEnabled(ContentResolver contentResolver) {
+        Uri uri = Uri.parse("content://com.google.android.glass.settings/system");
+        String[] projection = {"value"};
+        String selection = "name = ?";
+        String[] selectionArgs = {"notification_glance_enabled"};
+
+        Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, null);
+        if (cursor != null) {
+            try {
+                if (cursor.moveToFirst()) {
+                    String value = cursor.getString(cursor.getColumnIndexOrThrow("value"));
+                    return Boolean.parseBoolean(value); // Convert "true"/"false" string to boolean
+                }
+            } finally {
+                cursor.close(); // Always close the cursor to prevent memory leaks
+            }
+        }
+        return false; // Default to false if not found or error occurs
     }
 }
