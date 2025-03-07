@@ -16,10 +16,14 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.IBinder;
 import android.os.PowerManager;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.ForegroundColorSpan;
 import android.util.Base64;
 import android.util.Log;
 import android.widget.RemoteViews;
@@ -295,17 +299,31 @@ public class LiveCardService extends Service {
                     notiIntent.putExtra("notiList", notificationList.toString());
                     mNotiCard.setAction(PendingIntent.getActivity(
                             getApplicationContext(), 0, notiIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
-                    mNotiCardView = new RemoteViews(getPackageName(),
-                            R.layout.noticard);
+                    mNotiCardView = new CardBuilder(getApplicationContext(), CardBuilder.Layout.EMBED_INSIDE)
+                            .setFootnote(notificationList.length() + " items")
+                            .setAttributionIcon(R.drawable.livecardicon)
+                            .showStackIndicator(true)
+                            .setEmbeddedLayout(R.layout.noticard)
+                            .getRemoteViews();
                     try {
-                        mNotiCardView.setTextViewText(R.id.noti0, notificationList.getJSONObject(notificationList.length() - 1).optString("text"));
-                        mNotiCardView.setTextViewText(R.id.noti1, notificationList.getJSONObject(notificationList.length() - 2).optString("text"));
-                        mNotiCardView.setTextViewText(R.id.footer, notificationList.length() + " items");
-                        if (notificationList.length() > 2) { // 3 or more
-                            mNotiCardView.setTextViewText(R.id.noti2, notificationList.getJSONObject(notificationList.length() - 3).optString("text"));
+                        for (int i = 1; i < (Math.min(notificationList.length() + 1, 5)); i++) {
+                            String text = notificationList.getJSONObject(notificationList.length() - i).optString("text");
+                            String title = notificationList.getJSONObject(notificationList.length() - i).optString("title");
+                            if (i == 1) {
+                                mNotiCardView.setTextViewText(R.id.noti0, notiText(title, text));
+                            } else if (i == 2) {
+                                mNotiCardView.setTextViewText(R.id.noti1, notiText(title, text));
+                            } else if (i == 3) {
+                                mNotiCardView.setTextViewText(R.id.noti2, notiText(title, text));
+                            } else if (i == 4) {
+                                mNotiCardView.setTextViewText(R.id.noti3, notiText(title, text));
+                            }
                         }
-                        if (notificationList.length() > 3) { // 4 or more
-                            mNotiCardView.setTextViewText(R.id.noti3, notificationList.getJSONObject(notificationList.length() - 4).optString("text"));
+                        if (notificationList.length() < 4) {
+                            mNotiCardView.setViewVisibility(R.id.divider3, android.view.View.GONE);
+                        }
+                        if (notificationList.length() < 3) {
+                            mNotiCardView.setViewVisibility(R.id.divider2, android.view.View.GONE);
                         }
                     } catch (Exception e) {
                         throw new RuntimeException(e);
@@ -458,5 +476,13 @@ public class LiveCardService extends Service {
             }
         }
         return false; // Default to false if not found or error occurs
+    }
+
+    public static Spannable notiText(String title, String text) {
+
+        Spannable spannable = new SpannableString(title + "\n \n" + text);
+
+        spannable.setSpan(new ForegroundColorSpan(Color.GRAY), 0, title.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return spannable;
     }
 }
