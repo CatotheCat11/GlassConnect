@@ -233,7 +233,7 @@ public class LiveCardService extends Service {
     public static void postUpdate(boolean newN) {
         if (sInstance != null) {
             if (newN) {
-                MediaPlayer mp = MediaPlayer.create(sInstance.getApplicationContext(), R.raw.notification);
+                MediaPlayer mp = MediaPlayer.create(sInstance.getApplicationContext(), R.raw.sound_notification);
                 mp.start();
                 newNoti = true;
             }
