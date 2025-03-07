@@ -35,7 +35,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
-import androidx.fragment.app.DialogFragment;
 
 import org.apache.commons.collections4.MultiValuedMap;
 import org.apache.commons.collections4.multimap.ArrayListValuedHashMap;
@@ -46,9 +45,7 @@ import com.cato.connect.Helpers.AppsHelper;
 import com.cato.connect.NetworkPacket;
 import com.cato.connect.Plugins.Plugin;
 import com.cato.connect.Plugins.PluginFactory;
-import com.cato.connect.UserInterface.MainActivity;
 import com.cato.connect.UserInterface.PluginSettingsFragment;
-import com.cato.connect.UserInterface.StartActivityAlertDialogFragment;
 import com.cato.connect.R;
 
 import java.io.ByteArrayOutputStream;
@@ -572,18 +569,6 @@ public class NotificationsPlugin extends Plugin implements NotificationReceiver.
         return true;
     }
 
-    @Override
-    public DialogFragment getPermissionExplanationDialog() {
-        return new StartActivityAlertDialogFragment.Builder()
-                .setTitle(R.string.pref_plugin_notifications)
-                .setMessage(R.string.no_permissions)
-                .setPositiveButton(R.string.open_settings)
-                .setNegativeButton(R.string.cancel)
-                .setIntentAction("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
-                .setStartForResult(true)
-                .setRequestCode(MainActivity.RESULT_NEEDS_RELOAD)
-                .create();
-    }
 
     @Override
     public String[] getSupportedPacketTypes() {

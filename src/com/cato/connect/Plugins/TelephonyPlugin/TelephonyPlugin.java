@@ -23,7 +23,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import org.apache.commons.lang3.ArrayUtils;
-import com.cato.connect.Helpers.ContactsHelper;
+//import com.cato.connect.Helpers.ContactsHelper;
 import com.cato.connect.NetworkPacket;
 import com.cato.connect.Plugins.Plugin;
 import com.cato.connect.Plugins.PluginFactory;
@@ -141,7 +141,7 @@ public class TelephonyPlugin extends Plugin {
         int permissionCheck = ContextCompat.checkSelfPermission(context,
                 Manifest.permission.READ_CONTACTS);
 
-        if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+        /*if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
 
             Map<String, String> contactInfo = ContactsHelper.phoneNumberLookup(context, phoneNumber);
 
@@ -166,7 +166,7 @@ public class TelephonyPlugin extends Plugin {
 
         } else {
             np.set("contactName", phoneNumber);
-        }
+        }*/
 
         if (phoneNumber != null) {
             np.set("phoneNumber", phoneNumber);

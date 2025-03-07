@@ -289,9 +289,6 @@ public abstract class Plugin {
         return requestPermissionDialog(getRequiredPermissions(), permissionExplanation);
     }
 
-    public AlertDialogFragment getOptionalPermissionExplanationDialog() {
-        return requestPermissionDialog(getOptionalPermissions(), optionalPermissionExplanation);
-    }
 
     public boolean checkRequiredPermissions() {
         return arePermissionsGranted(getRequiredPermissions());

@@ -89,7 +89,7 @@ public class MainActivity extends Activity {
      */
     private void updateDeviceList() {
         Log.d("DebugCato", "Updating device list");
-        Integer position = mCardScrollView.getSelectedItemPosition();
+        int position = mCardScrollView.getSelectedItemPosition();
         mCards.clear();
         mDevices.clear();
         mCards.add(new CardBuilder(this, CardBuilder.Layout.MENU)

@@ -31,7 +31,6 @@ import android.telephony.SmsMessage;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import com.cato.connect.Helpers.ContactsHelper;
 import com.cato.connect.Helpers.SMSHelper;
 import com.cato.connect.NetworkPacket;
 import com.cato.connect.Plugins.Plugin;
@@ -330,7 +329,7 @@ public class SMSPlugin extends Plugin {
         int permissionCheck = ContextCompat.checkSelfPermission(context,
                 Manifest.permission.READ_CONTACTS);
 
-        if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+        /*if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
             Map<String, String> contactInfo = ContactsHelper.phoneNumberLookup(context, phoneNumber);
 
             if (contactInfo.containsKey("name")) {
@@ -340,7 +339,7 @@ public class SMSPlugin extends Plugin {
             if (contactInfo.containsKey("photoID")) {
                 np.set("phoneThumbnail", ContactsHelper.photoId64Encoded(context, contactInfo.get("photoID")));
             }
-        }
+        }*/
         if (phoneNumber != null) {
             np.set("phoneNumber", phoneNumber);
         }
