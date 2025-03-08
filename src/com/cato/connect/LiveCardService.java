@@ -162,7 +162,7 @@ public class LiveCardService extends Service {
 
                     int id = gesture.getId();
 
-                    if ((id == mGestureIds.LOOK_AT_SCREEN_ID || id == mGestureIds.LOOK_AWAY_FROM_SCREEN_ID) && lastNoti != -1) {
+                    if (id == mGestureIds.LOOK_AT_SCREEN_ID && lastNoti != -1) {
                         Log.d("EyeGesture", "Screen");
                         Intent notiIntent = new Intent(getApplicationContext(), NotificationActivity.class);
                         notiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
@@ -170,7 +170,9 @@ public class LiveCardService extends Service {
                         notiIntent.putExtra("notiList", notificationList.toString());
                         notiIntent.putExtra("lastNoti", (int) lastNoti);
                         lastNoti = -1;
-                        startActivity(notiIntent);
+                        if (!mPowerManager.isScreenOn()) {
+                            startActivity(notiIntent);
+                        }
                         if (mEyeGestureManager != null) {
                             mEyeGestureManager.unregister(EyeGesture.LOOK_AT_SCREEN, mEyeGestureListener);
                         }
@@ -179,7 +181,7 @@ public class LiveCardService extends Service {
             };
         }
     }
-    public static void showNoti() { //TODO: test, should open new noti when screen turned on
+    public static void showNoti() {
         if (lastNoti != -1) {
             Intent notiIntent = new Intent(sInstance, NotificationActivity.class);
             notiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
