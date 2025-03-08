@@ -245,8 +245,9 @@ public class LanLinkProvider extends BaseLinkProvider implements LanLink.LinkDis
                     Log.e("KDE/LanLinkProvider", "Handshake as " + mode + " failed with " + identityPacket.getString("deviceName"), e);
                     BackgroundService.RunCommand(context, service -> {
                         Device device = service.getDevice(deviceId);
+                        service.onNetworkChange();
                         if (device == null) return;
-                        device.unpair();
+                        //device.unpair();
                     });
                 }
             });
