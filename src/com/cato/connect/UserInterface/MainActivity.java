@@ -11,6 +11,9 @@ import android.content.Intent;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.content.Context;
@@ -20,6 +23,9 @@ import com.cato.connect.BackgroundService;
 import com.cato.connect.Device;
 import com.cato.connect.Helpers.DeviceHelper;
 import com.cato.connect.LiveCardService;
+import com.cato.connect.NetworkPacket;
+import com.cato.connect.Plugins.FindMyPhonePlugin.FindMyPhonePlugin;
+import com.cato.connect.R;
 import com.google.android.glass.media.Sounds;
 import com.google.android.glass.widget.CardBuilder;
 import com.google.android.glass.widget.CardScrollAdapter;
@@ -44,6 +50,7 @@ public class MainActivity extends Activity {
     private ExampleCardScrollAdapter mAdapter;
     private List<CardBuilder> mCards;
     private List<Device> mDevices;
+    Device selectedDevice = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,7 +75,7 @@ public class MainActivity extends Activity {
         super.onStart();
         Log.d("DebugCato", "onStart");
         mCardScrollView.activate();
-        BackgroundService.RunCommand(this, service -> { //TODO: test if works
+        BackgroundService.RunCommand(this, service -> {
             service.onNetworkChange();
             service.addDeviceListChangedCallback("MainActivity", this::updateDeviceList);
         });
@@ -117,8 +124,8 @@ public class MainActivity extends Activity {
                     mDevices.add(device);
                     CardBuilder card = new CardBuilder(this, CardBuilder.Layout.MENU)
                             .setText(device.getName())
-                            .setIcon(device.getIcon());  // TODO: check if icon fix worked
-                    card.setFootnote((device.isReachable() ? "Connected | " : "Not connected | " ) + "Tap to unpair"); //TODO: update automatically without refresh
+                            .setIcon(device.getIcon());
+                    card.setFootnote((device.isReachable() ? "Connected | " : "Not connected | " ) + "Tap for options");
                     mCards.add(card);
                     Log.d("DebugCato", "Adding device " + device.getName());
                 }
@@ -177,7 +184,6 @@ public class MainActivity extends Activity {
                 AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
                 am.playSoundEffect(Sounds.TAP);
                 if (position == 0) {
-                    // BackgroundService.RunCommand(MainActivity.this, BackgroundService::onNetworkChange); // TODO: this has a 50/50 chance of fixing issues or starting them, make it seperate option in settings?
                     updateDeviceList();
                 } else {
                     Device device = mDevices.get(position - 1);
@@ -188,11 +194,39 @@ public class MainActivity extends Activity {
                         device.requestPairing();
                         updateDeviceList();
                     } else if (device.isPaired()) {
-                        device.unpair(); //TODO: add confirmation dialog (give user time to cancel/change their mind)
-                        updateDeviceList();
+                        selectedDevice = device;
+                        openOptionsMenu();
                     }
                 }
             }
         });
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu_device, menu);
+        if (!selectedDevice.isPluginEnabled("FindRemoteDevicePlugin") || !selectedDevice.isReachable()) {
+            menu.removeItem(R.id.ring);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection.
+        Integer selection = item.getItemId();
+        if (selection == R.id.ring && selectedDevice.isReachable()) {
+            selectedDevice.sendPacket(new NetworkPacket(FindMyPhonePlugin.PACKET_TYPE_FINDMYPHONE_REQUEST));
+        } else if (selection == R.id.unpair) {
+            selectedDevice.unpair();
+            updateDeviceList();
+        }
+        return true;
+    }
+
+    @Override
+    public void onOptionsMenuClosed(Menu menu) {
+        selectedDevice = null;
     }
 }
