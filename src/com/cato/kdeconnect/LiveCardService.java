@@ -444,7 +444,7 @@ public class LiveCardService extends Service {
                                 @Override
                                 public void onImageLoaded(Bitmap bitmap) {
                                     if (bitmap != null) {
-                                        mMediaCardView.setImageViewBitmap(R.id.media_art, bitmap); //TODO: test if any art actually works
+                                        mMediaCardView.setImageViewBitmap(R.id.media_art, bitmap);
                                         if (mMediaCard != null && mMediaCardView != null) {
                                             mMediaCard.setViews(mMediaCardView);
                                         }
