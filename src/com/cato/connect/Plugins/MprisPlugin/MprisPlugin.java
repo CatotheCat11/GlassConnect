@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 @PluginFactory.LoadablePlugin
@@ -315,7 +316,7 @@ public class MprisPlugin extends Plugin {
 
         if (np.has("player")) {
             Log.d("MprisPlugin", "Received player status packet");
-            MprisPlayer playerStatus = players.get(np.getString("player")); //TODO: allow only one player at a time
+            MprisPlayer playerStatus = players.get(np.getString("player"));
             if (playerStatus != null) {
                 playerStatus.currentSong = np.getString("nowPlaying", playerStatus.currentSong);
                 //Note: title, artist and album will not be available for all desktop clients
