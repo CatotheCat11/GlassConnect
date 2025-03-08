@@ -18,6 +18,7 @@ import android.view.MenuItem;
 
 import com.cato.connect.BackgroundService;
 import com.cato.connect.Device;
+import com.cato.connect.LiveCardService;
 import com.cato.connect.NetworkPacket;
 import com.cato.connect.Plugins.MprisPlugin.MprisPlugin;
 import com.cato.connect.R;
@@ -65,6 +66,7 @@ public class MediaActivity extends Activity {
         // Handle item selection.
         if (item.getItemId() == R.id.media_stop) {
             sendCommand("action", "Stop");
+            LiveCardService.mediaSessionStop();
             return true;
         } else if (item.getItemId() == R.id.media_play) {
             sendCommand("action", "Play");
