@@ -9,7 +9,7 @@
 
     </PreferenceCategory>
 
-    <com.cato.connect.Plugins.SftpPlugin.StoragePreference
+    <com.cato.kdeconnect.Plugins.SftpPlugin.StoragePreference
         android:key="key_sftp_add_storage"
         android:icon="@drawable/ic_add"
         android:title="@string/sftp_preference_add_storage_location_title"

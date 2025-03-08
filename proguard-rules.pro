@@ -32,7 +32,7 @@
 -keep class org.apache.mina.** {*;}
 -keep class org.apache.sshd.** {*;}
 
--keep class com.cato.connect.** {*;}
+-keep class com.cato.kdeconnect.** {*;}
 
 -dontwarn org.mockito.**
 -dontwarn sun.reflect.**

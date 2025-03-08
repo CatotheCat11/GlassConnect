@@ -3,5 +3,5 @@
     <external-path
         name="external_files"
         path="." />
-    <external-path name="images" path="Android/data/com.cato.connect/files/Pictures" />
+    <external-path name="images" path="Android/data/com.cato.kdeconnect/files/Pictures" />
 </paths>
