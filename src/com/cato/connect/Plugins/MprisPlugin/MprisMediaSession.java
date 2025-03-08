@@ -375,7 +375,7 @@ public class MprisMediaSession implements
              */
             PendingIntent piOpenActivity = TaskStackBuilder.create(context)
                     .addNextIntentWithParentStack(iOpenActivity)
-                    .getPendingIntent(Build.VERSION.SDK_INT > 15 ? 0 : (int) System.currentTimeMillis(), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+                    .getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
 
             NotificationCompat.Builder notification = new NotificationCompat.Builder(context, NotificationHelper.Channels.MEDIA_CONTROL);
 
