@@ -29,6 +29,7 @@ import com.cato.connect.UserInterface.MainActivity;
 import com.cato.connect.R;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -65,10 +66,21 @@ public class ReceiveNotificationsPlugin extends Plugin {
     }
 
     public boolean onPacketReceived(final NetworkPacket np, String deviceId) {
-        //TODO: add support for notification removal
-        //This is a workaround while above is not implemented, to prevent crash
         if (np.getBoolean("isCancel", false)) {
             Log.d("NotificationsPlugin", "Received notification cancel packet");
+            String key = np.getString("id");
+            try {
+                for (int i = 0; i < LiveCardService.notificationList.length(); i++) {
+                    JSONObject noti = LiveCardService.notificationList.getJSONObject(i);
+                    if (noti.getString("key").equals(key)) {
+                        LiveCardService.notificationList.remove(i);
+                        LiveCardService.postUpdate(false);
+                        break;
+                    }
+                }
+            } catch (JSONException e) {
+                throw new RuntimeException(e);
+            }
             return true;
         }
         Log.d("NotificationsPlugin", "Received notification packet from " + deviceId);
@@ -95,7 +107,7 @@ public class ReceiveNotificationsPlugin extends Plugin {
         }
         Log.d("NotificationsPlugin", "Notification has all required properties");
 
-        if (np.getBoolean("silent", false)) { //TODO: implement silent notis?
+        if (np.getBoolean("silent", false)) {
             Log.d("NotificationsPlugin", "Silent notification, not showing");
             return true;
         }
