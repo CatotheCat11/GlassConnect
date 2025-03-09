@@ -177,7 +177,7 @@ public class MainActivity extends Activity {
             mCards.add(position, card);
         }
     }
-    private void setupClickListener() { //TODO: clicking sends to first card, why?
+    private void setupClickListener() {
         mCardScrollView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
@@ -189,10 +189,10 @@ public class MainActivity extends Activity {
                     Device device = mDevices.get(position - 1);
                     if (device.isPairRequestedByPeer()) {
                         device.acceptPairing();
-                        updateDeviceList();
                     } else if (!device.isPaired()) {
                         device.requestPairing();
-                        updateDeviceList();
+                        mCards.get(position).setFootnote("Pairing request sent \uD83D\uDD11 " + device.getVerificationKey());
+                        mAdapter.notifyDataSetChanged();
                     } else if (device.isPaired()) {
                         selectedDevice = device;
                         openOptionsMenu();
