@@ -314,7 +314,7 @@ public class NotificationActivity extends Activity {
                         if (device.getDeviceId().equals(deviceId)) {
                             NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_REPLY);
                             np.set("requestReplyId", notiObject.getString("requestReplyId"));
-                            np.set("message", spokenText);
+                            np.set("message", formatText(spokenText));
                             device.sendPacket(np);
                             Log.d("NotificationActivity", "Sent reply with request reply ID" + notiObject.getString("requestReplyId"));
                             removeSelectedNoti();
@@ -336,5 +336,13 @@ public class NotificationActivity extends Activity {
         if (mCards.isEmpty()) {
             finish();
         }
+    }
+
+    public static String formatText(String input) {
+        input = input.trim();
+        if (input.isEmpty()) return input;
+
+        // Capitalize the first character and append the rest of the text
+        return input.substring(0, 1).toUpperCase() + input.substring(1);
     }
 }
