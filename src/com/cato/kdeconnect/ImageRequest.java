@@ -21,22 +21,10 @@ import java.util.concurrent.Executors;
 import okhttp3.OkHttpClient;
 
 public class ImageRequest {
-    private static final int CACHE_SIZE = (int) (Runtime.getRuntime().maxMemory() / 8); // Use 1/8th of available memory
-    private static final LruCache<String, Bitmap> memoryCache = new LruCache<String, Bitmap>(CACHE_SIZE) {
-        @Override
-        protected int sizeOf(String key, Bitmap bitmap) {
-            return bitmap.getByteCount();
-        }
-    };
     static OkHttpClient okHttpClient = null;
     static ExecutorService executor = Executors.newFixedThreadPool(2);
     public static void makeImageRequest(Context context, String url, OkHttpClient client, ImageCallback callback) {
         executor.execute(() -> {
-            Bitmap cachedBitmap = memoryCache.get(url);
-            if (cachedBitmap != null) { //TODO: remove cache stuff, not needed
-                callback.onImageLoaded(cachedBitmap);
-                return;
-            }
             if (okHttpClient == null) {
                 okHttpClient = client;
             }
@@ -55,7 +43,6 @@ public class ImageRequest {
                         @Override
                         public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
                             Log.d("ImageRequest", "Image loaded from network");
-                            memoryCache.put(url, resource);
                             callback.onImageLoaded(resource);
                         }
 
