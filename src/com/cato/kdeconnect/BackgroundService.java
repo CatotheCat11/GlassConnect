@@ -14,6 +14,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.media.AudioManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkRequest;
@@ -41,6 +42,7 @@ import com.cato.kdeconnect.Plugins.PluginFactory;
 //import com.cato.kdeconnect.Plugins.RunCommandPlugin.RunCommandPlugin;
 //import com.cato.kdeconnect.Plugins.SharePlugin.SendFileActivity;
 import com.cato.kdeconnect.UserInterface.MainActivity;
+import com.google.android.glass.media.Sounds;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -108,6 +110,8 @@ public class BackgroundService extends Service {
 
         @Override
         public void pairingSuccessful() {
+            AudioManager audioManager = ContextCompat.getSystemService(BackgroundService.this, AudioManager.class);
+            audioManager.playSoundEffect(Sounds.SUCCESS);
             onDeviceListChanged();
         }
 
