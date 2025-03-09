@@ -132,7 +132,7 @@ public class LiveCardService extends Service {
             mNotiCardView = new CardBuilder(getApplicationContext(), CardBuilder.Layout.TEXT)
                     .setText("No notifications")
                     .setFootnote("0 items")
-                    .setAttributionIcon(R.drawable.livecardicon)
+                    .setAttributionIcon(R.drawable.ic_notification)
                     .getRemoteViews();
 
             Intent notiIntent = new Intent(getApplicationContext(), NotificationActivity.class);
@@ -272,7 +272,7 @@ public class LiveCardService extends Service {
                     mNotiCardView = new CardBuilder(getApplicationContext(), CardBuilder.Layout.TEXT)
                             .setText("No notifications")
                             .setFootnote("0 items")
-                            .setAttributionIcon(R.drawable.livecardicon)
+                            .setAttributionIcon(R.drawable.ic_notification)
                             .getRemoteViews();
                 } else if (notificationList.length() == 1) {
                     try {
@@ -292,7 +292,7 @@ public class LiveCardService extends Service {
                                 .setText(text)
                                 .setIcon(icon)
                                 .setFootnote("1 item")
-                                .setAttributionIcon(R.drawable.livecardicon)
+                                .setAttributionIcon(R.drawable.ic_notification)
                                 .getRemoteViews();
                     } catch (Exception e) {
                         throw new RuntimeException(e);
@@ -306,7 +306,7 @@ public class LiveCardService extends Service {
                             getApplicationContext(), 0, notiIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
                     mNotiCardView = new CardBuilder(getApplicationContext(), CardBuilder.Layout.EMBED_INSIDE)
                             .setFootnote(notificationList.length() + " items")
-                            .setAttributionIcon(R.drawable.livecardicon)
+                            .setAttributionIcon(R.drawable.ic_notification)
                             .showStackIndicator(true)
                             .setEmbeddedLayout(R.layout.noticard)
                             .getRemoteViews();
