@@ -1,4 +1,4 @@
-# KDE Connect for Google Glass
+# GlassConnect
 This is a modification of the [KDE Connect Android app](https://github.com/KDE/kdeconnect-android/) to make it work on the Google Glass.
 
 ## Features
@@ -22,7 +22,7 @@ If you forgot where you put a device, you can ring it from the Google Glass with
 
 1. Install the app using [adb](https://developer.android.com/tools/help/adb.html)
 ```
-    adb install KDEConnectGlass.apk
+    adb install GlassConnect.apk
 ```
 2. If you haven't already, install the [KDE Connect app](https://kdeconnect.kde.org/download.html) onto your device.
 

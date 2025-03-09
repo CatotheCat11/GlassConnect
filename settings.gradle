@@ -17,4 +17,4 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "kdeconnect-android"
+rootProject.name = "GlassConnect"
