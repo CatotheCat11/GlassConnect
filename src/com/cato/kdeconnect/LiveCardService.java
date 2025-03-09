@@ -386,7 +386,7 @@ public class LiveCardService extends Service {
     /**
      * IDs for various EyeGestures
      */
-    private class GestureIds {
+    private static class GestureIds {
         public int BLINK_ID;
         public int WINK_ID;
         public int DOUBLE_BLINK_ID;
