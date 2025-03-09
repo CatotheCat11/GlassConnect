@@ -89,20 +89,6 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:progress="0" />
-
-                <ImageView
-                    android:id="@+id/media_repeat"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_weight="1"
-                    app:srcCompat="@drawable/ic_repeat_off_24dp" />
-
-                <ImageView
-                    android:id="@+id/media_shuffle"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_weight="1"
-                    app:srcCompat="@drawable/ic_shuffle_off_24dp" />
             </LinearLayout>
 
         </LinearLayout>
