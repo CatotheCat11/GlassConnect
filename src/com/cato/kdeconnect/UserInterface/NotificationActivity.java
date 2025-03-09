@@ -95,8 +95,6 @@ public class NotificationActivity extends Activity {
                             .setHeading(noti.getString("title"))
                             .setSubheading(noti.getString("appName"))
                             .setText(noti.getString("text"))
-                            //Show available actions
-                            .setFootnote(noti.has("actions") ? "Actions: " + noti.getString("actions") : "")
                             .setTimestamp(getTimeAgo(noti.optLong("time", 0)));
                     if (noti.has("icon")) {
                         card.setIcon(stringToBitmap(noti.getString("icon")));
