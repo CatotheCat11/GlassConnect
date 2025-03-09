@@ -129,17 +129,17 @@ public class LiveCardService extends Service {
             Log.d(NOTI_CARD_TAG, "Publishing LiveCard");
             mNotiCard = new LiveCard(this, NOTI_CARD_TAG);
 
-            mNotiCardView = new CardBuilder(this, CardBuilder.Layout.TEXT)
-                    .showStackIndicator(true)
-                    .setText("Notifications will appear here once a device is connected")
+            mNotiCardView = new CardBuilder(getApplicationContext(), CardBuilder.Layout.TEXT)
+                    .setText("No notifications")
+                    .setFootnote("0 items")
                     .setAttributionIcon(R.drawable.livecardicon)
                     .getRemoteViews();
 
-            Intent notiIntent = new Intent(this, NotificationActivity.class); //TODO: set initial intent to menu to close live card
+            Intent notiIntent = new Intent(getApplicationContext(), NotificationActivity.class);
             notiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
                     Intent.FLAG_ACTIVITY_CLEAR_TASK);
             mNotiCard.setAction(PendingIntent.getActivity(
-                    this, 0, notiIntent, PendingIntent.FLAG_IMMUTABLE));
+                    getApplicationContext(), 0, notiIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
 
             mNotiCard.publish(LiveCard.PublishMode.SILENT);
             mNotiCard.setViews(mNotiCardView);
@@ -354,10 +354,10 @@ public class LiveCardService extends Service {
                 mMediaCardView.setProgressBar(R.id.media_progress, (int) playerStatus.getLength(), (int) playerStatus.getPosition(), false);
                 // Live variable to prevent repeatedly updating info every second while playing
                 if (playerStatus.isPlaying()) {
-                    mMediaCardView.setImageViewResource(R.id.media_play, R.drawable.ic_pause_white); //TODO: swap play/pause to show like a status instead of an interactable/button?
+                    mMediaCardView.setImageViewResource(R.id.media_play, R.drawable.ic_play_white);
                     live = true;
                 } else {
-                    mMediaCardView.setImageViewResource(R.id.media_play, R.drawable.ic_play_white);
+                    mMediaCardView.setImageViewResource(R.id.media_play, R.drawable.ic_pause_white);
                     live = false;
                 }
                 if (live) {
@@ -430,7 +430,6 @@ public class LiveCardService extends Service {
         return String.format("%02d:%02d", minutes, seconds);
     }
     private static void updateAlbumArt() {
-        //TODO: reset to placeholder, why? fixed, test if it works
         String albumArtUrl = playerStatus.getAlbumArtUrl();
         if (!albumArtUrl.isEmpty() && !albumArtUrl.equals(lastAlbumArtUrl)) {
             mMediaCardView.setImageViewResource(R.id.media_art, R.drawable.placeholder_art);
