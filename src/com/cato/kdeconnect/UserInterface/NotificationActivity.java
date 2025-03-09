@@ -44,8 +44,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-//TODO: implement notification dismissal from phone
-
 public class NotificationActivity extends Activity {
     private List<CardBuilder> mCards;
     private CardScrollView mCardScrollView;
@@ -175,8 +173,7 @@ public class NotificationActivity extends Activity {
     public Bitmap stringToBitmap(String encodedString){
         try {
             byte [] encodeByte=Base64.decode(encodedString,Base64.DEFAULT);
-            Bitmap bitmap=BitmapFactory.decodeByteArray(encodeByte, 0, encodeByte.length);
-            return bitmap;
+            return BitmapFactory.decodeByteArray(encodeByte, 0, encodeByte.length);
         } catch(Exception e) {
             e.getMessage();
             return null;
@@ -197,24 +194,6 @@ public class NotificationActivity extends Activity {
                 AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
                 am.playSoundEffect(Sounds.TAP);
                 openOptionsMenu();
-                /* the following code shows how action can be run
-                BackgroundService.RunCommand(getApplicationContext(), service -> {
-                            Collection<Device> devices = service.getDevices().values();
-                            for (Device device : devices) {
-                                try {
-                                    JSONObject notiObject = notiList.getJSONObject(notiList.length() - (1 + position));
-                                    if (device.getDeviceId().equals(notiObject.getString("deviceId"))) {
-                                        NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_ACTION);
-                                        np.set("key", notiObject.getString("key"));
-                                        np.set("action", new JSONArray(notiObject.getString("actions")).getString(0)); //will run the first action
-                                        device.sendPacket(np);
-                                    }
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                }
-                            }
-                        });
-                        */
             }
         });
     }
@@ -330,10 +309,10 @@ public class NotificationActivity extends Activity {
             Log.d("NotificationActivity", "Spoken text: " + spokenText);
             BackgroundService.RunCommand(getApplicationContext(), service -> {
                 Collection<Device> devices = service.getDevices().values();
-                for (Device device : devices) {
-                    try {
-                        JSONObject notiObject = notiList.getJSONObject(notiList.length() - (1 + mCardScrollView.getSelectedItemPosition())); //TODO: move json object outside of loop
-                        String deviceId = notiObject.getString("deviceId");
+                try {
+                    JSONObject notiObject = notiList.getJSONObject(notiList.length() - (1 + mCardScrollView.getSelectedItemPosition()));
+                    String deviceId = notiObject.getString("deviceId");
+                    for (Device device : devices) {
                         if (device.getDeviceId().equals(deviceId)) {
                             NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_REPLY);
                             np.set("requestReplyId", notiObject.getString("requestReplyId"));
@@ -341,10 +320,11 @@ public class NotificationActivity extends Activity {
                             device.sendPacket(np);
                             Log.d("NotificationActivity", "Sent reply with request reply ID" + notiObject.getString("requestReplyId"));
                             removeSelectedNoti();
+                            return;
                         }
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
                     }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
                 }
             });
         }
