@@ -161,6 +161,9 @@ public class LiveCardService extends Service {
                     Log.i("EyeGestureListener", "Gesture: " + gesture.getId());
 
                     int id = gesture.getId();
+                    if (lastNoti == -1 && mEyeGestureManager != null) {
+                        mEyeGestureManager.unregister(EyeGesture.LOOK_AT_SCREEN, mEyeGestureListener);
+                    }
 
                     if (id == mGestureIds.LOOK_AT_SCREEN_ID && lastNoti != -1) {
                         Log.d("EyeGesture", "Screen");
