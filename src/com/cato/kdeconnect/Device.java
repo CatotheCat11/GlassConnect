@@ -358,7 +358,7 @@ public class Device implements BaseLink.PacketReceiver {
 
     }
     public String getVerificationKey() {
-        return SslHelper.getVerificationKey(SslHelper.certificate, certificate).substring(0, 8);
+        return SslHelper.getVerificationKey(SslHelper.certificate, certificate).substring(0, 8).toUpperCase();
     }
 
     //
