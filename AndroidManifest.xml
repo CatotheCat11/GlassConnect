@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:versionCode="12101"
-    android:versionName="1.21.1">
+    android:versionCode="100"
+    android:versionName="1.0.0">
 
     <supports-screens
         android:anyDensity="true"
@@ -137,15 +137,6 @@
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="com.cato.kdeconnect.UserInterface.MainActivity" />
         </activity>
-        <activity
-            android:name="com.cato.kdeconnect.Plugins.SharePlugin.SendFileActivity"
-            android:label="KDE Connect"
-            android:exported="true"
-            android:parentActivityName="com.cato.kdeconnect.UserInterface.MainActivity">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.cato.kdeconnect.UserInterface.MainActivity" />
-        </activity>
 
         <receiver android:name="com.cato.kdeconnect.KdeConnectBroadcastReceiver"
             android:exported="true">
@@ -187,10 +178,6 @@
 
         <!-- Plugin-related activities and services -->
 
-        <activity
-            android:name="com.cato.kdeconnect.Plugins.ClibpoardPlugin.ClipboardFloatingActivity"
-            android:theme="@style/KdeConnectTheme"
-            android:excludeFromRecents="true"/>
 
         <activity
             android:name="com.cato.kdeconnect.Plugins.MprisPlugin.MprisActivity"
@@ -210,123 +197,6 @@
             </intent-filter>
         </receiver>
 
-        <activity
-            android:name="com.cato.kdeconnect.Plugins.RunCommandPlugin.RunCommandActivity"
-            android:label="@string/pref_plugin_runcommand"
-            android:exported="false"
-            android:parentActivityName="com.cato.kdeconnect.UserInterface.MainActivity">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.cato.kdeconnect.UserInterface.MainActivity" />
-        </activity>
-        <activity
-            android:name="com.cato.kdeconnect.Plugins.RunCommandPlugin.RunCommandWidgetDeviceSelector"
-            android:excludeFromRecents="true"
-            android:label="@string/pref_plugin_runcommand"
-            android:launchMode="singleTask"
-            android:noHistory="true"
-            android:screenOrientation="user"
-            android:theme="@style/KdeConnectTheme" />
-
-        <service
-            android:name="com.cato.kdeconnect.Plugins.RunCommandPlugin.RunCommandWidgetDataProviderService"
-            android:exported="false"
-            android:permission="android.permission.BIND_REMOTEVIEWS" />
-
-
-        <activity android:name="com.cato.kdeconnect.Plugins.RunCommandPlugin.RunCommandUrlActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-
-                <data
-                    android:host="runcommand"
-                    android:scheme="kdeconnect" />
-            </intent-filter>
-        </activity>
-        <activity
-            android:name="com.cato.kdeconnect.Plugins.BigscreenPlugin.BigscreenActivity"
-            android:configChanges="orientation|keyboardHidden|screenSize"
-            android:label="@string/pref_plugin_bigscreen"
-            android:exported="true"
-            android:parentActivityName="com.cato.kdeconnect.UserInterface.MainActivity"
-            android:windowSoftInputMode="stateHidden|adjustResize">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.cato.kdeconnect.UserInterface.MainActivity" />
-        </activity>
-        <activity
-            android:name="com.cato.kdeconnect.Plugins.MousePadPlugin.MousePadActivity"
-            android:label="@string/pref_plugin_mousepad"
-            android:exported="false"
-            android:launchMode="singleTop"
-            android:parentActivityName="com.cato.kdeconnect.UserInterface.MainActivity">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.cato.kdeconnect.UserInterface.MainActivity" />
-        </activity>
-        <activity
-            android:name="com.cato.kdeconnect.Plugins.MousePadPlugin.ComposeSendActivity"
-            android:label="Compose send"
-            android:exported="false"
-            android:parentActivityName="com.cato.kdeconnect.Plugins.MousePadPlugin.MousePadActivity">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.cato.kdeconnect.Plugins.MousePadPlugin.MousePadActivity" />
-        </activity>
-        <activity
-            android:name="com.cato.kdeconnect.Plugins.MousePadPlugin.SendKeystrokesToHostActivity"
-            android:label="@string/pref_plugin_mousepad_send_keystrokes"
-            android:exported="false"
-            android:parentActivityName="com.cato.kdeconnect.UserInterface.MainActivity">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.cato.kdeconnect.UserInterface.MainActivity" />
-            <!-- Accept data with "text/x-keystrokes" to send the text to the connected host and emulate keystrokes -->
-            <intent-filter>
-                <action android:name="android.intent.action.SEND"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <data android:mimeType="text/x-keystrokes"/>
-            </intent-filter>
-        </activity>
-        <activity
-            android:name="com.cato.kdeconnect.Plugins.PresenterPlugin.PresenterActivity"
-            android:configChanges="orientation|keyboardHidden|screenSize"
-            android:label="@string/pref_plugin_presenter"
-            android:exported="false"
-            android:parentActivityName="com.cato.kdeconnect.UserInterface.MainActivity"
-            android:windowSoftInputMode="stateHidden|adjustResize">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.cato.kdeconnect.UserInterface.MainActivity" />
-        </activity>
-        <activity
-            android:name="com.cato.kdeconnect.Plugins.SharePlugin.ShareActivity"
-            android:exported="true"
-            android:label="@string/manifest_label_share">
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-
-                <data android:mimeType="*/*" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.SEND_MULTIPLE" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-
-                <data android:mimeType="*/*" />
-            </intent-filter>
-
-            <meta-data
-                android:name="android.service.chooser.chooser_target_service"
-                android:value="com.cato.kdeconnect.Plugins.SharePlugin.ShareChooserTargetService" />
-        </activity>
 
         <receiver android:name="com.cato.kdeconnect.Plugins.SharePlugin.ShareBroadcastReceiver"
             android:exported="true">
@@ -361,17 +231,6 @@
                 <action android:name="android.service.chooser.ChooserTargetService" />
             </intent-filter>
         </service>
-        <service
-            android:name="com.cato.kdeconnect.Plugins.MouseReceiverPlugin.MouseReceiverService"
-            android:exported="true"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/mouse_receiver_service" />
-        </service>
 
         <activity
             android:name="com.cato.kdeconnect.Plugins.NotificationsPlugin.NotificationFilterActivity"
@@ -383,62 +242,6 @@
         </activity>
 
         <activity android:name="com.cato.kdeconnect.Plugins.PhotoPlugin.PhotoActivity" />
-
-        <activity
-            android:name="com.cato.kdeconnect.UserInterface.TrustedNetworksActivity"
-            android:label="@string/trusted_networks"
-            android:parentActivityName="com.cato.kdeconnect.UserInterface.MainActivity">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.cato.kdeconnect.UserInterface.MainActivity" />
-        </activity>
-
-        <activity
-            android:name="com.cato.kdeconnect.UserInterface.About.EasterEggActivity"
-            android:label="@string/easter_egg"
-            android:parentActivityName="com.cato.kdeconnect.UserInterface.MainActivity">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.cato.kdeconnect.UserInterface.MainActivity" />
-        </activity>
-
-        <activity
-            android:name="com.cato.kdeconnect.UserInterface.About.AboutKDEActivity"
-            android:label="@string/about_kde"
-            android:parentActivityName="com.cato.kdeconnect.UserInterface.MainActivity">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.cato.kdeconnect.UserInterface.MainActivity" />
-        </activity>
-
-        <activity
-            android:name="com.cato.kdeconnect.UserInterface.About.LicensesActivity"
-            android:label="@string/licenses"
-            android:parentActivityName="com.cato.kdeconnect.UserInterface.MainActivity">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.cato.kdeconnect.UserInterface.MainActivity" />
-        </activity>
-
-        <service
-            android:name="com.cato.kdeconnect.Plugins.ClibpoardPlugin.ClipboardTileService"
-            android:icon="@drawable/ic_baseline_content_paste_24"
-            android:exported="true"
-            android:label="@string/send_clipboard"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
-
-        <service android:name="com.cato.kdeconnect.Plugins.RunCommandPlugin.RunCommandControlsProviderService"
-            android:label="@string/kde_connect"
-            android:exported="true"
-            android:permission="android.permission.BIND_CONTROLS">
-            <intent-filter>
-                <action android:name="android.service.controls.ControlsProviderService" />
-            </intent-filter>
-        </service>
     </application>
 
 </manifest>
