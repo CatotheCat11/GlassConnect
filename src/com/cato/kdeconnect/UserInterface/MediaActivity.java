@@ -85,7 +85,7 @@ public class MediaActivity extends Activity {
         // Nothing else to do, closing the activity.
         finish();
     }
-    private void sendCommand(String method, String value) { //TODO: move player variable into function
+    private void sendCommand(String method, String value) {
         NetworkPacket np = new NetworkPacket(PACKET_TYPE_MPRIS_REQUEST);
         np.set("player", getIntent().getStringExtra("player"));
         np.set(method, value);
