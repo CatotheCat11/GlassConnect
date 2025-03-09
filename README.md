@@ -26,7 +26,7 @@ If you forgot where you put a device, you can ring it from the Google Glass with
 ```
 2. If you haven't already, install the [KDE Connect app](https://kdeconnect.kde.org/download.html) onto your device.
 
-<img width="320" alt="Pair" src="https://github.com/user-attachments/assets/7fc5b8a8-ff49-45c6-af46-a660b8b1961e" />
+<img width="320" alt="Pair" src="https://github.com/user-attachments/assets/fdd07b9a-9338-4ddf-92b0-0a069a789cc1" />
 
 3. Open the app on Google Glass, and select the device you want to pair.
 4. Accept the pairing request on the other device.
