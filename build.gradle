@@ -77,8 +77,8 @@ android {
         // keep minifyEnabled false above for faster builds; set to 'true'
         // when testing to make sure ProGuard/R8 is not deleting important stuff
         release {
-            minifyEnabled true
-            shrinkResources true
+            minifyEnabled false
+            shrinkResources false
         }
     }
     lint {
