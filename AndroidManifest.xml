@@ -120,6 +120,11 @@
             android:exported="true"
             android:theme="@style/KdeConnectTheme"/>
         <activity
+            android:name=".Plugins.MousePadPlugin.MousePadActivity"
+            android:label="Mouse Pad"
+            android:exported="true"
+            android:theme="@style/KdeConnectTheme"/>
+        <activity
             android:name="com.cato.kdeconnect.UserInterface.PluginSettingsActivity"
             android:label="@string/device_menu_plugins"
             android:exported="false"

@@ -209,6 +209,9 @@ public class MainActivity extends Activity {
         if (!selectedDevice.isPluginEnabled("FindRemoteDevicePlugin") || !selectedDevice.isReachable()) {
             menu.removeItem(R.id.ring);
         }
+        if (!selectedDevice.isPluginEnabled("MousePadPlugin") || !selectedDevice.isReachable()) {
+            menu.removeItem(R.id.mousepad);
+        }
         return true;
     }
 
@@ -218,6 +221,8 @@ public class MainActivity extends Activity {
         Integer selection = item.getItemId();
         if (selection == R.id.ring && selectedDevice.isReachable()) {
             selectedDevice.sendPacket(new NetworkPacket(FindMyPhonePlugin.PACKET_TYPE_FINDMYPHONE_REQUEST));
+        } else if (selection == R.id.mousepad && selectedDevice.isReachable()) {
+            selectedDevice.getPlugin("MousePadPlugin").startMainActivity(this);
         } else if (selection == R.id.unpair) {
             selectedDevice.unpair();
             updateDeviceList();

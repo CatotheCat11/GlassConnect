@@ -5,6 +5,10 @@
         android:title="Ring"
         android:icon="@drawable/ic_ring"/>
     <item
+        android:id="@+id/mousepad"
+        android:title="Mousepad"
+        android:icon="@drawable/ic_mouse"/>
+    <item
         android:id="@+id/unpair"
         android:title="Unpair"
         android:icon="@drawable/ic_close" />
