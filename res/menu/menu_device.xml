@@ -6,7 +6,7 @@
         android:icon="@drawable/ic_ring"/>
     <item
         android:id="@+id/mousepad"
-        android:title="Mousepad"
+        android:title="Control Mouse"
         android:icon="@drawable/ic_mouse"/>
     <item
         android:id="@+id/unpair"
