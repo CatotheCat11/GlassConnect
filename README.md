@@ -6,7 +6,7 @@ This is a modification of the [KDE Connect Android app](https://github.com/KDE/k
 <img width="320" alt="Noti" src="https://github.com/user-attachments/assets/01c86197-2bc5-47fd-8713-94998a7d100b" />
 
 ### Notification Sync
-Notifications from your connected devices will appear on the Google glass. You can perform actions ("Mark as read", "Mute", etc.) and reply to notifications with speech-to-text.
+Notifications from your connected devices will appear on the Google glass. You can perform actions ("Mark as read", "Mute", etc.) and reply to notifications with speech-to-text. The app also supports [Notification Glance](https://support.google.com/glass/answer/6054697).
 
 <img width="320" alt="Media" src="https://github.com/user-attachments/assets/52435f61-c22f-4906-8e35-2b94e64e3669" />
 
