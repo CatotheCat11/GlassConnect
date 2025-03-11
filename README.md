@@ -20,7 +20,7 @@ If you forgot where you put a device, you can ring it from the Google Glass with
 
 ## How to setup
 
-1. Install GlassConnect using [adb](https://developer.android.com/tools/help/adb.html)
+1. [Download](https://github.com/CatotheCat11/GlassConnect/releases/latest) GlassConnect and install it using [adb](https://developer.android.com/tools/help/adb.html)
 ```
     adb install GlassConnect.apk
 ```
