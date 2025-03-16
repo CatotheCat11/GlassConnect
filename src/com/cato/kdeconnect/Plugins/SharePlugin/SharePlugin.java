@@ -11,8 +11,10 @@ import static androidx.core.content.ContextCompat.startActivity;
 import android.Manifest;
 import android.app.Activity;
 import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -34,6 +36,7 @@ import com.cato.kdeconnect.UserInterface.PluginSettingsFragment;
 import com.cato.kdeconnect.async.BackgroundJob;
 import com.cato.kdeconnect.async.BackgroundJobHandler;
 import com.cato.kdeconnect.R;
+import com.google.android.glass.media.Sounds;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -103,9 +106,9 @@ public class SharePlugin extends Plugin {
 
     @Override
     public void startMainActivity(Activity parentActivity) {
-        /*Intent intent = new Intent(parentActivity, SendFileActivity.class);
+        Intent intent = new Intent(parentActivity, SendFileActivity.class);
         intent.putExtra("deviceId", device.getDeviceId());
-        parentActivity.startActivity(intent);*/
+        parentActivity.startActivity(intent);
     }
 
     @Override
@@ -300,6 +303,10 @@ public class SharePlugin extends Plugin {
                 receiveFileJob = null;
             } else if (job == uploadFileJob) {
                 uploadFileJob = null;
+                AudioManager am = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+                am.playSoundEffect(Sounds.SUCCESS);
+                SendFileActivity.mIndeterminate.hide();
+                SendFileActivity.mIndeterminate = null;
             }
         }
 
@@ -309,6 +316,10 @@ public class SharePlugin extends Plugin {
                 receiveFileJob = null;
             } else if (job == uploadFileJob) {
                 uploadFileJob = null;
+                AudioManager am = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+                am.playSoundEffect(Sounds.ERROR);
+                SendFileActivity.mIndeterminate.hide();
+                SendFileActivity.mIndeterminate = null;
             }
         }
     }

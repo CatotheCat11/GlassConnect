@@ -206,6 +206,9 @@ public class MainActivity extends Activity {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menu_device, menu);
+        if (!selectedDevice.isPluginEnabled("SharePlugin") || !selectedDevice.isReachable()) {
+            menu.removeItem(R.id.share);
+        }
         if (!selectedDevice.isPluginEnabled("FindRemoteDevicePlugin") || !selectedDevice.isReachable()) {
             menu.removeItem(R.id.ring);
         }
@@ -219,7 +222,9 @@ public class MainActivity extends Activity {
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle item selection.
         Integer selection = item.getItemId();
-        if (selection == R.id.ring && selectedDevice.isReachable()) {
+        if (selection == R.id.share && selectedDevice.isReachable()) {
+            selectedDevice.getPlugin("SharePlugin").startMainActivity(this);
+        } else if (selection == R.id.ring && selectedDevice.isReachable()) {
             selectedDevice.sendPacket(new NetworkPacket(FindMyPhonePlugin.PACKET_TYPE_FINDMYPHONE_REQUEST));
         } else if (selection == R.id.mousepad && selectedDevice.isReachable()) {
             selectedDevice.getPlugin("MousePadPlugin").startMainActivity(this);

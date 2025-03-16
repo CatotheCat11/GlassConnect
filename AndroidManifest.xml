@@ -210,6 +210,13 @@
             </intent-filter>
         </receiver>
 
+        <activity
+            android:name="com.cato.kdeconnect.Plugins.SharePlugin.SendFileActivity"
+            android:configChanges="orientation|screenSize"
+            android:excludeFromRecents="true"
+            android:label="Share file"
+            android:launchMode="singleInstance" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.cato.kdeconnect.fileprovider"

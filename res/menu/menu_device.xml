@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
+        android:id="@+id/share"
+        android:title="Share media"
+        android:icon="@drawable/ic_share_white"/>
+    <item
         android:id="@+id/ring"
         android:title="Ring"
         android:icon="@drawable/ic_ring"/>
