@@ -6,21 +6,21 @@ This is a modification of the [KDE Connect Android app](https://github.com/KDE/k
 <img width="320" alt="Noti" src="https://github.com/user-attachments/assets/01c86197-2bc5-47fd-8713-94998a7d100b" />
 
 ### Notification Sync
-Notifications from your connected devices will appear on the Google glass. You can perform actions ("Mark as read", "Mute", etc.) and reply to notifications with speech-to-text.
+Notifications from your connected devices will appear on the Google glass. You can perform actions ("Mark as read", "Mute", etc.) and reply to notifications with speech-to-text. The app also supports [Notification Glance](https://support.google.com/glass/answer/6054697).
 
 <img width="320" alt="Media" src="https://github.com/user-attachments/assets/52435f61-c22f-4906-8e35-2b94e64e3669" />
 
 ### Media control
-A media player on a connected device can be controlled from the Google Glass with KDE connect.
+A media player on a connected device can be controlled from the Google Glass with GlassConnect.
 
 <img width="320" alt="Ring" src="https://github.com/user-attachments/assets/4dd0b2c2-b624-4354-bdfd-39121d9f192f" />
 
 ### Find my phone
-If you forgot where you put a device, you can ring it from the Google Glass with KDE connect. 
+If you forgot where you put a device, you can ring it from the Google Glass with GlassConnect. 
 
 ## How to setup
 
-1. Install the app using [adb](https://developer.android.com/tools/help/adb.html)
+1. [Download](https://github.com/CatotheCat11/GlassConnect/releases/latest) GlassConnect and install it using [adb](https://developer.android.com/tools/help/adb.html)
 ```
     adb install GlassConnect.apk
 ```
