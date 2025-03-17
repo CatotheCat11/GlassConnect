@@ -64,7 +64,7 @@ public class SharePlugin extends Plugin {
     private final Handler handler;
 
     private CompositeReceiveFileJob receiveFileJob;
-    private CompositeUploadFileJob uploadFileJob;
+    public CompositeUploadFileJob uploadFileJob;
     private final Callback receiveFileJobCallback;
 
     public SharePlugin() {
@@ -305,8 +305,10 @@ public class SharePlugin extends Plugin {
                 uploadFileJob = null;
                 AudioManager am = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
                 am.playSoundEffect(Sounds.SUCCESS);
-                SendFileActivity.mIndeterminate.hide();
-                SendFileActivity.mIndeterminate = null;
+                if (SendFileActivity.mIndeterminate != null) {
+                    SendFileActivity.mIndeterminate.hide();
+                    SendFileActivity.mIndeterminate = null;
+                }
             }
         }
 
@@ -318,8 +320,10 @@ public class SharePlugin extends Plugin {
                 uploadFileJob = null;
                 AudioManager am = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
                 am.playSoundEffect(Sounds.ERROR);
-                SendFileActivity.mIndeterminate.hide();
-                SendFileActivity.mIndeterminate = null;
+                if (SendFileActivity.mIndeterminate != null) {
+                    SendFileActivity.mIndeterminate.hide();
+                    SendFileActivity.mIndeterminate = null;
+                }
             }
         }
     }

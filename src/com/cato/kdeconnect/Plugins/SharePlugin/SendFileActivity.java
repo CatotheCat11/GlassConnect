@@ -23,6 +23,7 @@ import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.transition.Transition;
 import com.cato.kdeconnect.BackgroundService;
 import com.cato.kdeconnect.R;
+import com.cato.kdeconnect.UserInterface.MainActivity;
 import com.google.android.glass.media.Sounds;
 import com.google.android.glass.widget.CardBuilder;
 import com.google.android.glass.widget.CardScrollAdapter;
@@ -58,6 +59,19 @@ public class SendFileActivity extends Activity {
         mCardScrollView.activate();
         setupClickListener();
         setContentView(mCardScrollView);
+    }
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (mIndeterminate != null) {
+            mIndeterminate.hide();
+            mIndeterminate = null;
+        }
+        BackgroundService.RunWithPlugin(this, intent.getStringExtra("deviceId"), SharePlugin.class, plugin -> {
+            if (plugin.uploadFileJob != null) {
+                plugin.cancelJob(plugin.uploadFileJob.getId());
+            }
+        });
     }
     private void getMediaFiles() {
         mCards = new ArrayList<CardBuilder>();
