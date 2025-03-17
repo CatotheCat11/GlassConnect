@@ -3,46 +3,32 @@
  *
  * SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
 */
+package com.cato.kdeconnect.Backends.LoopbackBackend
 
-package com.cato.kdeconnect.Backends.LoopbackBackend;
+import android.content.Context
+import androidx.annotation.WorkerThread
+import com.cato.kdeconnect.Backends.BaseLink
+import com.cato.kdeconnect.Backends.BaseLinkProvider
+import com.cato.kdeconnect.Device
+import com.cato.kdeconnect.DeviceInfo
+import com.cato.kdeconnect.Helpers.DeviceHelper.getDeviceInfo
+import com.cato.kdeconnect.NetworkPacket
 
-import android.content.Context;
+class LoopbackLink : BaseLink {
+    constructor(context: Context, linkProvider: BaseLinkProvider) : super(context, linkProvider)
 
-import com.cato.kdeconnect.Backends.BaseLink;
-import com.cato.kdeconnect.Backends.BaseLinkProvider;
-import com.cato.kdeconnect.Backends.BasePairingHandler;
-import com.cato.kdeconnect.Device;
-import com.cato.kdeconnect.NetworkPacket;
-
-import androidx.annotation.WorkerThread;
-
-public class LoopbackLink extends BaseLink {
-
-    public LoopbackLink(Context context, BaseLinkProvider linkProvider) {
-        super(context, "loopback", linkProvider);
-    }
-
-    @Override
-    public String getName() {
-        return "LoopbackLink";
-    }
-
-    @Override
-    public BasePairingHandler getPairingHandler(Device device, BasePairingHandler.PairingHandlerCallback callback) {
-        return new LoopbackPairingHandler(device, callback);
-    }
+    override fun getName(): String = "LoopbackLink"
+    override fun getDeviceInfo(): DeviceInfo = getDeviceInfo(context)
 
     @WorkerThread
-    @Override
-    public boolean sendPacket(NetworkPacket in, Device.SendPacketStatusCallback callback) {
-        packetReceived(in);
-        if (in.hasPayload()) {
-            callback.onProgressChanged(0);
-            in.setPayload(in.getPayload());
-            callback.onProgressChanged(100);
+    override fun sendPacket(packet: NetworkPacket, callback: Device.SendPacketStatusCallback, sendPayloadFromSameThread: Boolean): Boolean {
+        packetReceived(packet)
+        if (packet.hasPayload()) {
+            callback.onPayloadProgressChanged(0)
+            packet.payload = packet.payload // this triggers logic in the setter
+            callback.onPayloadProgressChanged(100)
         }
-        callback.onSuccess();
-        return true;
+        callback.onSuccess()
+        return true
     }
-
 }

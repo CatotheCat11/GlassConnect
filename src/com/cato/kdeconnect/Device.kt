@@ -1,902 +1,679 @@
 /*
- * SPDX-FileCopyrightText: 2014 Albert Vaca Cintora <albertvaka@gmail.com>
+ * SPDX-FileCopyrightText: 2023 Albert Vaca Cintora <albertvaka@gmail.com>
  *
  * SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
 */
+package com.cato.kdeconnect
 
-package com.cato.kdeconnect;
-
-import android.app.Notification;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.content.res.Resources;
-import android.preference.PreferenceManager;
-import android.util.Base64;
-import android.util.Log;
-
-import androidx.annotation.AnyThread;
-import androidx.annotation.Nullable;
-import androidx.annotation.WorkerThread;
-import androidx.core.app.NotificationCompat;
-import androidx.core.content.ContextCompat;
-
-import org.apache.commons.collections4.MultiValuedMap;
-import org.apache.commons.collections4.multimap.ArrayListValuedHashMap;
-import org.apache.commons.lang3.StringUtils;
-import com.cato.kdeconnect.Backends.BaseLink;
-import com.cato.kdeconnect.Backends.BasePairingHandler;
-import com.cato.kdeconnect.Helpers.DeviceHelper;
-import com.cato.kdeconnect.Helpers.NotificationHelper;
-import com.cato.kdeconnect.Helpers.SecurityHelpers.SslHelper;
-import com.cato.kdeconnect.Plugins.Plugin;
-import com.cato.kdeconnect.Plugins.PluginFactory;
-import com.cato.kdeconnect.Plugins.ReceiveNotificationsPlugin.ReceiveNotificationsPlugin;
-import com.cato.kdeconnect.UserInterface.MainActivity;
-
-import java.security.KeyFactory;
-import java.security.PrivateKey;
-import java.security.cert.Certificate;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Vector;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-
-public class Device implements BaseLink.PacketReceiver {
-
-    private final Context context;
-
-    private final String deviceId;
-    private String name;
-    public Certificate certificate;
-    private int notificationId;
-    private int protocolVersion;
-
-    private DeviceType deviceType;
-    private PairStatus pairStatus;
-
-    private final CopyOnWriteArrayList<PairingCallback> pairingCallback = new CopyOnWriteArrayList<>();
-    private final Map<String, BasePairingHandler> pairingHandlers = new HashMap<>();
-
-    private final CopyOnWriteArrayList<BaseLink> links = new CopyOnWriteArrayList<>();
-    private DevicePacketQueue packetQueue;
-
-    private List<String> supportedPlugins = new ArrayList<>();
-    private final ConcurrentHashMap<String, Plugin> plugins = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Plugin> pluginsWithoutPermissions = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Plugin> pluginsWithoutOptionalPermissions = new ConcurrentHashMap<>();
-    private MultiValuedMap<String, String> pluginsByIncomingInterface = new ArrayListValuedHashMap<>();
-
-    private final SharedPreferences settings;
-
-    private final CopyOnWriteArrayList<PluginsChangedListener> pluginsChangedListeners = new CopyOnWriteArrayList<>();
-    private Set<String> incomingCapabilities = new HashSet<>();
-
-    public boolean supportsPacketType(String type) {
-        if (incomingCapabilities == null) {
-            return true;
-        } else {
-            return incomingCapabilities.contains(type);
-        }
-    }
-
-    public interface PluginsChangedListener {
-        void onPluginsChanged(Device device);
-    }
-
-    public enum PairStatus {
-        NotPaired,
-        Paired
-    }
-
-    public enum DeviceType {
-        Phone,
-        Tablet,
-        Computer,
-        Tv;
-
-        static public DeviceType FromString(String s) {
-            if ("tablet".equals(s)) return Tablet;
-            if ("phone".equals(s)) return Phone;
-            if ("tv".equals(s)) return Tv;
-            return Computer; //Default
-        }
-
-        public String toString() {
-            switch (this) {
-                case Tablet:
-                    return "tablet";
-                case Phone:
-                    return "phone";
-                case Tv:
-                    return "tv";
-                default:
-                    return "desktop";
-            }
-        }
-
-        public Integer getIcon() {
-            int drawableId;
-            switch (this) {
-                case Phone:
-                    drawableId = R.drawable.ic_device_phone;
-                    break;
-                case Tablet:
-                    drawableId = R.drawable.ic_device_tablet;
-                    break;
-                case Tv:
-                    drawableId = R.drawable.ic_device_tv;
-                    break;
-                default:
-                    drawableId = R.drawable.ic_device_laptop;
-            }
-            return drawableId;
-        }
-    }
-
-    public interface PairingCallback {
-        void incomingRequest();
-
-        void pairingSuccessful();
-
-        void pairingFailed(String error);
-
-        void unpaired();
-    }
-
-    //Remembered trusted device, we need to wait for a incoming devicelink to communicate
-    Device(Context context, String deviceId) {
-        settings = context.getSharedPreferences(deviceId, Context.MODE_PRIVATE);
-
-        //Log.e("Device","Constructor A");
-
-        this.context = context;
-        this.deviceId = deviceId;
-        this.name = settings.getString("deviceName", context.getString(R.string.unknown_device));
-        this.pairStatus = PairStatus.Paired;
-        this.protocolVersion = DeviceHelper.ProtocolVersion; //We don't know it yet
-        this.deviceType = DeviceType.FromString(settings.getString("deviceType", "desktop"));
-
-        //Assume every plugin is supported until addLink is called and we can get the actual list
-        supportedPlugins = new Vector<>(PluginFactory.getAvailablePlugins());
-
-        //Do not load plugins yet, the device is not present
-        //reloadPluginsFromSettings();
-    }
-
-    //Device known via an incoming connection sent to us via a devicelink, we know everything but we don't trust it yet
-    Device(Context context, NetworkPacket np, BaseLink dl) {
-
-        //Log.e("Device","Constructor B");
-
-        this.context = context;
-        this.deviceId = np.getString("deviceId");
-        this.name = context.getString(R.string.unknown_device); //We read it in addLink
-        this.pairStatus = PairStatus.NotPaired;
-        this.protocolVersion = 0;
-        this.deviceType = DeviceType.Computer;
-
-        settings = context.getSharedPreferences(deviceId, Context.MODE_PRIVATE);
-
-        addLink(np, dl);
-    }
-
-    public String getName() {
-        return StringUtils.defaultString(name, context.getString(R.string.unknown_device));
-    }
-
-    public Integer getIcon() {
-        return deviceType.getIcon();
-    }
-
-    public DeviceType getDeviceType() {
-        return deviceType;
-    }
-
-    public String getDeviceId() {
-        return deviceId;
-    }
-
-    public Context getContext() {
-        return context;
-    }
-
-    //Returns 0 if the version matches, < 0 if it is older or > 0 if it is newer
-    public int compareProtocolVersion() {
-        return protocolVersion - DeviceHelper.ProtocolVersion;
-    }
+import android.app.Notification
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
+import android.graphics.drawable.Drawable
+import android.hardware.usb.UsbDevice.getDeviceId
+import android.util.Log
+import androidx.annotation.AnyThread
+import androidx.annotation.VisibleForTesting
+import androidx.annotation.WorkerThread
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import com.cato.kdeconnect.Backends.BaseLink
+import com.cato.kdeconnect.Backends.BaseLink.PacketReceiver
+import com.cato.kdeconnect.DeviceInfo.Companion.loadFromSettings
+import com.cato.kdeconnect.DeviceStats.countReceived
+import com.cato.kdeconnect.DeviceStats.countSent
+import com.cato.kdeconnect.Helpers.DeviceHelper
+import com.cato.kdeconnect.Helpers.NotificationHelper
+import com.cato.kdeconnect.PairingHandler.PairingCallback
+import com.cato.kdeconnect.Plugins.Plugin
+import com.cato.kdeconnect.Plugins.Plugin.getPluginKey
+import com.cato.kdeconnect.Plugins.PluginFactory
+import com.cato.kdeconnect.Plugins.ReceiveNotificationsPlugin.ReceiveNotificationsPlugin
+import com.cato.kdeconnect.UserInterface.MainActivity
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import org.apache.commons.collections4.MultiValuedMap
+import org.apache.commons.collections4.multimap.ArrayListValuedHashMap
+import java.io.IOException
+import java.security.cert.Certificate
+import java.util.Vector
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 
-    //
-    // Pairing-related functions
-    //
+class Device : PacketReceiver {
 
-    public boolean isPaired() {
-        return pairStatus == PairStatus.Paired;
-    }
+    data class NetworkPacketWithCallback(val np : NetworkPacket, val callback: SendPacketStatusCallback)
 
-    /* Asks all pairing handlers that, is pair requested? */
-    public boolean isPairRequested() {
-        boolean pairRequested = false;
-        for (BasePairingHandler ph : pairingHandlers.values()) {
-            pairRequested = pairRequested || ph.isPairRequested();
-        }
-        return pairRequested;
-    }
+    val context: Context
 
-    /* Asks all pairing handlers that, is pair requested by peer? */
-    public boolean isPairRequestedByPeer() {
-        boolean pairRequestedByPeer = false;
-        for (BasePairingHandler ph : pairingHandlers.values()) {
-            pairRequestedByPeer = pairRequestedByPeer || ph.isPairRequestedByPeer();
-        }
-        return pairRequestedByPeer;
-    }
+    @VisibleForTesting
+    val deviceInfo: DeviceInfo
 
-    public void addPairingCallback(PairingCallback callback) {
-        pairingCallback.add(callback);
-    }
+    /**
+     * The notification ID for the pairing notification.
+     * This ID should be only set once, and it should be unique for each device.
+     * We use the current time in milliseconds as the ID as default.
+     */
+    private var notificationId = 0
 
-    public void removePairingCallback(PairingCallback callback) {
-        pairingCallback.remove(callback);
-    }
+    @VisibleForTesting
+    var pairingHandler: PairingHandler
 
-    public void requestPairing() {
+    private val links = CopyOnWriteArrayList<BaseLink>()
 
-        Resources res = context.getResources();
+    /**
+     * Plugins that have matching capabilities.
+     */
+    var supportedPlugins: List<String>
+        private set
 
-        if (isPaired()) {
-            for (PairingCallback cb : pairingCallback) {
-                cb.pairingFailed(res.getString(R.string.error_already_paired));
-            }
-            return;
-        }
+    /**
+     * Plugins that have been instantiated successfully. A subset of supportedPlugins.
+     */
+    val loadedPlugins: ConcurrentMap<String, Plugin> = ConcurrentHashMap()
 
-        if (!isReachable()) {
-            for (PairingCallback cb : pairingCallback) {
-                cb.pairingFailed(res.getString(R.string.error_not_reachable));
-            }
-            return;
-        }
+    /**
+     * Plugins that have not been instantiated because of missing permissions.
+     * The supportedPlugins that aren't in loadedPlugins will be here.
+     */
+    val pluginsWithoutPermissions: ConcurrentMap<String, Plugin> = ConcurrentHashMap()
 
-        for (BasePairingHandler ph : pairingHandlers.values()) {
-            ph.requestPairing();
-        }
+    /**
+     * Subset of loadedPlugins that, despite being able to run, will have some limitation because of missing permissions.
+     */
+    val pluginsWithoutOptionalPermissions: ConcurrentMap<String, Plugin> = ConcurrentHashMap()
 
-    }
+    /**
+     * Same as loadedPlugins but indexed by incoming packet type
+     */
+    private var pluginsByIncomingInterface: MultiValuedMap<String, String> = ArrayListValuedHashMap()
 
-    public void unpair() {
+    private val settings: SharedPreferences
 
-        for (BasePairingHandler ph : pairingHandlers.values()) {
-            ph.unpair();
-        }
-        unpairInternal(); // Even if there are no pairing handlers, unpair
+    private val pairingCallbacks = CopyOnWriteArrayList<PairingCallback>()
+    private val pluginsChangedListeners = CopyOnWriteArrayList<PluginsChangedListener>()
+
+    private val sendChannel = Channel<NetworkPacketWithCallback>(Channel.UNLIMITED)
+    private var sendCoroutine : Job? = null
+
+    /**
+     * Constructor for remembered, already-trusted devices.
+     * Given the deviceId, it will load the other properties from SharedPreferences.
+     */
+    internal constructor(context: Context, deviceId: String) {
+        this.context = context
+        this.settings = context.getSharedPreferences(deviceId, Context.MODE_PRIVATE)
+        this.deviceInfo = loadFromSettings(context, deviceId, settings)
+        this.pairingHandler = PairingHandler(this, createDefaultPairingCallback(), PairingHandler.PairState.Paired)
+        this.supportedPlugins = Vector(PluginFactory.getAvailablePlugins()) // Assume all are supported until we receive capabilities
+        Log.i("Device", "Loading trusted device: ${deviceInfo.name}")
     }
 
     /**
-     * This method does not send an unpair packet, instead it unpairs internally by deleting trusted device info. . Likely to be called after sending packet from
-     * pairing handler
+     * Constructor for devices discovered but not trusted yet.
+     * Gets the DeviceInfo by calling link.getDeviceInfo() on the link passed.
+     * This constructor also calls addLink() with the link you pass to it, since it's not legal to have an unpaired Device with 0 links.
      */
-    private void unpairInternal() {
-
-        //Log.e("Device","Unpairing (unpairInternal)");
-        pairStatus = PairStatus.NotPaired;
-
-        SharedPreferences preferences = context.getSharedPreferences("trusted_devices", Context.MODE_PRIVATE);
-        preferences.edit().remove(deviceId).apply();
-
-        SharedPreferences devicePreferences = context.getSharedPreferences(deviceId, Context.MODE_PRIVATE);
-        devicePreferences.edit().clear().apply();
-
-        for (PairingCallback cb : pairingCallback) cb.unpaired();
-
-        reloadPluginsFromSettings();
-
+    internal constructor(context: Context, link: BaseLink) {
+        this.context = context
+        this.deviceInfo = link.deviceInfo
+        this.settings = context.getSharedPreferences(deviceInfo.id, Context.MODE_PRIVATE)
+        this.pairingHandler = PairingHandler(this, createDefaultPairingCallback(), PairingHandler.PairState.NotPaired)
+        this.supportedPlugins = Vector(PluginFactory.getAvailablePlugins()) // Assume all are supported until we receive capabilities
+        Log.i("Device", "Creating untrusted device: " + deviceInfo.name)
+        addLink(link)
     }
 
-    /* This method should be called after pairing is done from pairing handler. Calling this method again should not create any problem as most of the things will get over writter*/
-    private void pairingDone() {
+    fun supportsPacketType(type: String): Boolean =
+        deviceInfo.incomingCapabilities?.contains(type) ?: true
 
-        //Log.e("Device", "Storing as trusted, deviceId: "+deviceId);
-
-        hidePairingNotification();
-
-        pairStatus = PairStatus.Paired;
-
-        //Store as trusted device
-        SharedPreferences preferences = context.getSharedPreferences("trusted_devices", Context.MODE_PRIVATE);
-        preferences.edit().putBoolean(deviceId, true).apply();
-
-        SharedPreferences.Editor editor = context.getSharedPreferences(deviceId, Context.MODE_PRIVATE).edit();
-        editor.putString("deviceName", name);
-        editor.putString("deviceType", deviceType.toString());
-        editor.apply();
-
-        reloadPluginsFromSettings();
-
-        for (PairingCallback cb : pairingCallback) {
-            cb.pairingSuccessful();
-        }
-
+    fun interface PluginsChangedListener {
+        fun onPluginsChanged(device: Device)
     }
+
+    val connectivityType: String?
+        get() = links.firstOrNull()?.name
+
+    val name: String
+        get() = deviceInfo.name
+
+    val icon: Drawable
+        get() = deviceInfo.type.getIcon(context)
+
+    val deviceType: DeviceType
+        get() = deviceInfo.type
+
+    val protocolVersion: Int
+        get() = deviceInfo.protocolVersion
+
+    val deviceId: String
+        get() = deviceInfo.id
+
+    val certificate: Certificate
+        get() = deviceInfo.certificate
+
+    val verificationKey: String?
+        get() = pairingHandler.verificationKey()
+
+    // Returns 0 if the version matches, < 0 if it is older or > 0 if it is newer
+    fun compareProtocolVersion(): Int =
+        deviceInfo.protocolVersion - DeviceHelper.ProtocolVersion
+
+    val isPaired: Boolean
+        get() = pairingHandler.state == PairingHandler.PairState.Paired
+
+    val pairStatus : PairingHandler.PairState
+        get() = pairingHandler.state
+
+    fun addPairingCallback(callback: PairingCallback) = pairingCallbacks.add(callback)
+
+    fun removePairingCallback(callback: PairingCallback) = pairingCallbacks.remove(callback)
+
+    fun requestPairing() = pairingHandler.requestPairing()
+
+    fun unpair() = pairingHandler.unpair()
 
     /* This method is called after accepting pair request form GUI */
-    public void acceptPairing() {
-
-        Log.i("KDE/Device", "Accepted pair request started by the other device");
-
-        for (BasePairingHandler ph : pairingHandlers.values()) {
-            ph.acceptPairing();
-        }
-
+    fun acceptPairing() {
+        Log.i("Device", "Accepted pair request started by the other device")
+        pairingHandler.acceptPairing()
     }
 
     /* This method is called after rejecting pairing from GUI */
-    public void rejectPairing() {
-
-        Log.i("KDE/Device", "Rejected pair request started by the other device");
-
-        //Log.e("Device","Unpairing (rejectPairing)");
-        pairStatus = PairStatus.NotPaired;
-
-        for (BasePairingHandler ph : pairingHandlers.values()) {
-            ph.rejectPairing();
-        }
-
-        for (PairingCallback cb : pairingCallback) {
-            cb.pairingFailed(context.getString(R.string.error_canceled_by_user));
-        }
-
+    fun cancelPairing() {
+        Log.i("Device", "This side cancelled the pair request")
+        pairingHandler.cancelPairing()
     }
-    public String getVerificationKey() {
-        return SslHelper.getVerificationKey(SslHelper.certificate, certificate).substring(0, 8).toUpperCase();
+
+    private fun createDefaultPairingCallback(): PairingCallback {
+        return object : PairingCallback {
+            override fun incomingPairRequest() {
+                displayPairingNotification()
+                pairingCallbacks.forEach(PairingCallback::incomingPairRequest)
+            }
+
+            override fun pairingSuccessful() {
+                Log.i("Device", "pairing successful, adding to trusted devices list")
+
+                hidePairingNotification()
+
+                // Store current device certificate so we can check it in the future (TOFU)
+                deviceInfo.saveInSettings(this@Device.settings)
+
+                // Store as trusted device
+                val preferences = context.getSharedPreferences("trusted_devices", Context.MODE_PRIVATE)
+                preferences.edit().putBoolean(deviceInfo.id, true).apply()
+
+                try {
+                    reloadPluginsFromSettings()
+
+                    pairingCallbacks.forEach(PairingCallback::pairingSuccessful)
+                } catch (e: Exception) {
+                    Log.e("Device", "Exception in pairingSuccessful. Not unpairing because saving the trusted device succeeded", e)
+                }
+            }
+
+            override fun pairingFailed(error: String) {
+                hidePairingNotification()
+                pairingCallbacks.forEach { it.pairingFailed(error) }
+            }
+
+            override fun unpaired() {
+                Log.i("Device", "unpaired, removing from trusted devices list")
+                val preferences = context.getSharedPreferences("trusted_devices", Context.MODE_PRIVATE)
+                preferences.edit().remove(deviceInfo.id).apply()
+
+                val devicePreferences = context.getSharedPreferences(deviceInfo.id, Context.MODE_PRIVATE)
+                devicePreferences.edit().clear().apply()
+
+                pairingCallbacks.forEach(PairingCallback::unpaired)
+
+                notifyPluginsOfDeviceUnpaired(context, deviceInfo.id)
+
+                reloadPluginsFromSettings()
+            }
+        }
     }
 
     //
     // Notification related methods used during pairing
     //
-    public int getNotificationId() {
-        return notificationId;
+    fun displayPairingNotification() {
+        hidePairingNotification()
+
+        notificationId = System.currentTimeMillis().toInt()
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            putExtra(MainActivity.EXTRA_DEVICE_ID, deviceId)
+            putExtra(MainActivity.PAIR_REQUEST_STATUS, MainActivity.PAIRING_PENDING)
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            1,
+            intent,
+            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val acceptIntent = Intent(context, MainActivity::class.java).apply {
+            putExtra(MainActivity.EXTRA_DEVICE_ID, deviceId)
+            putExtra(MainActivity.PAIR_REQUEST_STATUS, MainActivity.PAIRING_ACCEPTED)
+        }
+        val rejectIntent = Intent(context, MainActivity::class.java).apply {
+            putExtra(MainActivity.EXTRA_DEVICE_ID, deviceId)
+            putExtra(MainActivity.PAIR_REQUEST_STATUS, MainActivity.PAIRING_REJECTED)
+        }
+
+        val acceptedPendingIntent = PendingIntent.getActivity(
+            context,
+            2,
+            acceptIntent,
+            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val rejectedPendingIntent = PendingIntent.getActivity(
+            context,
+            4,
+            rejectIntent,
+            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val res = context.resources
+
+        val notificationManager = ContextCompat.getSystemService(context, NotificationManager::class.java)!!
+
+        val noti = NotificationCompat.Builder(context, NotificationHelper.Channels.DEFAULT)
+            .setContentTitle(res.getString(R.string.pairing_request_from, name))
+            .setContentText(res.getString(R.string.pairing_verification_code, verificationKey))
+            .setTicker(res.getString(R.string.pair_requested))
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentIntent(pendingIntent)
+            .addAction(R.drawable.ic_accept_pairing_24dp, res.getString(R.string.pairing_accept), acceptedPendingIntent)
+            .addAction(R.drawable.ic_reject_pairing_24dp, res.getString(R.string.pairing_reject), rejectedPendingIntent)
+            .setAutoCancel(true)
+            .setDefaults(Notification.DEFAULT_ALL)
+            .build()
+
+        NotificationHelper.notifyCompat(notificationManager, notificationId, noti)
     }
 
-    public void displayPairingNotification() {
-
-        hidePairingNotification();
-
-        notificationId = (int) System.currentTimeMillis();
-
-        Intent intent = new Intent(getContext(), MainActivity.class);
-        intent.putExtra(MainActivity.EXTRA_DEVICE_ID, getDeviceId());
-        intent.putExtra(MainActivity.PAIR_REQUEST_STATUS, MainActivity.PAIRING_PENDING);
-        PendingIntent pendingIntent = PendingIntent.getActivity(getContext(), 1, intent, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE);
-
-        Intent acceptIntent = new Intent(getContext(), MainActivity.class);
-        Intent rejectIntent = new Intent(getContext(), MainActivity.class);
-
-        acceptIntent.putExtra(MainActivity.EXTRA_DEVICE_ID, getDeviceId());
-        //acceptIntent.putExtra("notificationId", notificationId);
-        acceptIntent.putExtra(MainActivity.PAIR_REQUEST_STATUS, MainActivity.PAIRING_ACCEPTED);
-
-        rejectIntent.putExtra(MainActivity.EXTRA_DEVICE_ID, getDeviceId());
-        //rejectIntent.putExtra("notificationId", notificationId);
-        rejectIntent.putExtra(MainActivity.PAIR_REQUEST_STATUS, MainActivity.PAIRING_REJECTED);
-
-        PendingIntent acceptedPendingIntent = PendingIntent.getActivity(getContext(), 2, acceptIntent, PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_MUTABLE);
-        PendingIntent rejectedPendingIntent = PendingIntent.getActivity(getContext(), 4, rejectIntent, PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_MUTABLE);
-
-        Resources res = getContext().getResources();
-
-        final NotificationManager notificationManager = ContextCompat.getSystemService(getContext(), NotificationManager.class);
-
-        String verificationKeyShort = SslHelper.getVerificationKey(SslHelper.certificate, certificate).substring(8);
-
-        Notification noti = new NotificationCompat.Builder(getContext(), NotificationHelper.Channels.DEFAULT)
-                .setContentTitle(res.getString(R.string.pairing_request_from, getName()))
-                .setContentText(res.getString(R.string.pairing_verification_code, verificationKeyShort))
-                .setTicker(res.getString(R.string.pair_requested))
-                .setSmallIcon(R.drawable.ic_notification)
-                .addAction(R.drawable.ic_accept_pairing_24dp, res.getString(R.string.pairing_accept), acceptedPendingIntent)
-                .addAction(R.drawable.ic_reject_pairing_24dp, res.getString(R.string.pairing_reject), rejectedPendingIntent)
-                .setAutoCancel(true)
-                .setDefaults(Notification.DEFAULT_ALL)
-                .build();
-
-        NotificationHelper.notifyCompat(notificationManager, notificationId, noti);
+    fun hidePairingNotification() {
+        val notificationManager = ContextCompat.getSystemService(context, NotificationManager::class.java)!!
+        notificationManager.cancel(notificationId)
     }
 
-    public void hidePairingNotification() {
-        final NotificationManager notificationManager = ContextCompat.getSystemService(getContext(),
-                NotificationManager.class);
-        notificationManager.cancel(notificationId);
+    val isReachable: Boolean
+        get() = links.isNotEmpty()
+
+    fun addLink(link: BaseLink) {
+        synchronized(sendChannel) {
+            if (sendCoroutine == null) {
+                sendCoroutine = CoroutineScope(Dispatchers.IO).launch {
+                    for ((np, callback) in sendChannel) {
+                        sendPacketBlocking(np, callback)
+                    }
+                }
+            }
+        }
+
+        // FilesHelper.LogOpenFileCount();
+        links.add(link)
+
+        val sortedLinks = links.sortedWith { o1, o2 ->
+            o2.linkProvider.priority compareTo o1.linkProvider.priority
+        }
+        links.clear()
+        links.addAll(sortedLinks)
+
+        link.addPacketReceiver(this)
+
+        val hasChanges = updateDeviceInfo(link.deviceInfo)
+
+        if (hasChanges || links.size == 1) {
+            reloadPluginsFromSettings()
+        }
     }
 
-    //
-    // ComputerLink-related functions
-    //
+    fun removeLink(link: BaseLink) {
+        // FilesHelper.LogOpenFileCount();
 
-    public boolean isReachable() {
-        return !links.isEmpty();
-    }
-
-    public void addLink(NetworkPacket identityPacket, BaseLink link) {
+        link.removePacketReceiver(this)
+        links.remove(link)
+        Log.i(
+            "KDE/Device",
+            "removeLink: ${link.linkProvider.name} -> $name active links: ${links.size}"
+        )
         if (links.isEmpty()) {
-            packetQueue = new DevicePacketQueue(this);
-        }
-        //FilesHelper.LogOpenFileCount();
-        links.add(link);
-        link.addPacketReceiver(this);
-
-        this.protocolVersion = identityPacket.getInt("protocolVersion");
-
-        if (identityPacket.has("deviceName")) {
-            this.name = identityPacket.getString("deviceName", this.name);
-            SharedPreferences.Editor editor = settings.edit();
-            editor.putString("deviceName", this.name);
-            editor.apply();
-        }
-
-        if (identityPacket.has("deviceType")) {
-            this.deviceType = DeviceType.FromString(identityPacket.getString("deviceType", "desktop"));
-        }
-
-        if (identityPacket.has("certificate")) {
-            String certificateString = identityPacket.getString("certificate");
-
-            try {
-                byte[] certificateBytes = Base64.decode(certificateString, 0);
-                certificate = SslHelper.parseCertificate(certificateBytes);
-                Log.i("KDE/Device", "Got certificate ");
-            } catch (Exception e) {
-                Log.e("KDE/Device", "Error getting certificate", e);
-
-            }
-        }
-
-        try {
-            SharedPreferences globalSettings = PreferenceManager.getDefaultSharedPreferences(context);
-            byte[] privateKeyBytes = Base64.decode(globalSettings.getString("privateKey", ""), 0);
-            PrivateKey privateKey = KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(privateKeyBytes));
-            link.setPrivateKey(privateKey);
-        } catch (Exception e) {
-            Log.e("KDE/Device", "Exception reading our own private key", e); //Should not happen
-        }
-
-        Log.i("KDE/Device", "addLink " + link.getLinkProvider().getName() + " -> " + getName() + " active links: " + links.size());
-
-        if (!pairingHandlers.containsKey(link.getName())) {
-            BasePairingHandler.PairingHandlerCallback callback = new BasePairingHandler.PairingHandlerCallback() {
-                @Override
-                public void incomingRequest() {
-                    for (PairingCallback cb : pairingCallback) {
-                        cb.incomingRequest();
-                    }
-                }
-
-                @Override
-                public void pairingDone() {
-                    Device.this.pairingDone();
-                }
-
-                @Override
-                public void pairingFailed(String error) {
-                    for (PairingCallback cb : pairingCallback) {
-                        cb.pairingFailed(error);
-                    }
-                }
-
-                @Override
-                public void unpaired() {
-                    unpairInternal();
-                }
-            };
-            pairingHandlers.put(link.getName(), link.getPairingHandler(this, callback));
-        }
-
-        Set<String> outgoingCapabilities = identityPacket.getStringSet("outgoingCapabilities", null);
-        Set<String> incomingCapabilities = identityPacket.getStringSet("incomingCapabilities", null);
-
-
-        if (incomingCapabilities != null && outgoingCapabilities != null) {
-            supportedPlugins = new Vector<>(PluginFactory.pluginsForCapabilities(incomingCapabilities, outgoingCapabilities));
-        } else {
-            supportedPlugins = new Vector<>(PluginFactory.getAvailablePlugins());
-        }
-        this.incomingCapabilities = incomingCapabilities;
-
-        reloadPluginsFromSettings();
-
-    }
-
-    public void removeLink(BaseLink link) {
-        //FilesHelper.LogOpenFileCount();
-
-        /* Remove pairing handler corresponding to that link too if it was the only link*/
-        boolean linkPresent = false;
-        for (BaseLink bl : links) {
-            if (bl.getName().equals(link.getName())) {
-                linkPresent = true;
-                break;
-            }
-        }
-        if (!linkPresent) {
-            pairingHandlers.remove(link.getName());
-        }
-
-        link.removePacketReceiver(this);
-        links.remove(link);
-        Log.i("KDE/Device", "removeLink: " + link.getLinkProvider().getName() + " -> " + getName() + " active links: " + links.size());
-        if (links.isEmpty()) {
-            reloadPluginsFromSettings();
-            if (packetQueue != null) {
-                packetQueue.disconnected();
-                packetQueue = null;
+            reloadPluginsFromSettings()
+            synchronized(sendChannel) {
+                sendCoroutine?.cancel(CancellationException("Device disconnected"))
+                sendCoroutine = null
             }
         }
     }
 
-    @Override
-    public void onPacketReceived(NetworkPacket np) {
-
-        if (NetworkPacket.PACKET_TYPE_PAIR.equals(np.getType())) {
-
-            Log.i("KDE/Device", "Pair packet");
-
-            for (BasePairingHandler ph : pairingHandlers.values()) {
-                try {
-                    ph.packetReceived(np);
-                } catch (Exception e) {
-                    Log.e("PairingPacketReceived", "Exception", e);
-                }
+    fun updateDeviceInfo(newDeviceInfo: DeviceInfo): Boolean {
+        var hasChanges = false
+        if (deviceInfo.name != newDeviceInfo.name || deviceInfo.type != newDeviceInfo.type || deviceInfo.protocolVersion != newDeviceInfo.protocolVersion) {
+            hasChanges = true
+            deviceInfo.name = newDeviceInfo.name
+            deviceInfo.type = newDeviceInfo.type
+            deviceInfo.protocolVersion = newDeviceInfo.protocolVersion
+            if (isPaired) {
+                deviceInfo.saveInSettings(settings)
             }
-        } else if (isPaired()) {
-            // pluginsByIncomingInterface may not be built yet
-            if(pluginsByIncomingInterface.isEmpty()) {
-                reloadPluginsFromSettings();
-            }
+        }
 
-            //If capabilities are not supported, iterate all plugins
-            Collection<String> targetPlugins = pluginsByIncomingInterface.get(np.getType());
-            Log.d("KDE/Device", "Packet received: " + np.getType());
-            if (!targetPlugins.isEmpty()) {
-                for (String pluginKey : targetPlugins) {
-                    Plugin plugin = plugins.get(pluginKey);
-                    try {
-                        plugin.onPacketReceived(np);
-                    } catch (Exception e) {
-                        Log.e("KDE/Device", "Exception in " + plugin.getPluginKey() + "'s onPacketReceived()", e);
-                        //try { Log.e("KDE/Device", "NetworkPacket:" + np.serialize()); } catch (Exception _) { }
-                    }
-                }
-            } else {
-                if (np.getType().equals(NetworkPacket.PACKET_TYPE_NOTIFICATION)) {
-                    Log.d("KDE/Device", "Notification packet received");
-                    ReceiveNotificationsPlugin receiveNotificationsPlugin = new ReceiveNotificationsPlugin();
-                    try {
-                        receiveNotificationsPlugin.onPacketReceived(np, getDeviceId()); //TODO: remove need for hardcoding?
-                    } catch (Exception e) {
-                        Log.e("KDE/Device", "Exception in ReceiveNotificationsPlugin onPacketReceived()", e);
-                        try { Log.e("KDE/Device", "NetworkPacket:" + np.serialize()); } catch (Exception ignored) { }
-                    }
-                }
-                Log.w("Device", "Ignoring packet with type " + np.getType() + " because no plugin can handle it");
-            }
-        } else {
+        val incomingCapabilities = deviceInfo.incomingCapabilities
+        val outgoingCapabilities = deviceInfo.outgoingCapabilities
+        val newIncomingCapabilities = newDeviceInfo.incomingCapabilities
+        val newOutgoingCapabilities = newDeviceInfo.outgoingCapabilities
+        if (
+            !newIncomingCapabilities.isNullOrEmpty() &&
+            !newOutgoingCapabilities.isNullOrEmpty() &&
+            (
+                    incomingCapabilities != newIncomingCapabilities ||
+                            outgoingCapabilities != newOutgoingCapabilities
+                    )
+        ) {
+            hasChanges = true
+            Log.i("updateDeviceInfo", "Updating supported plugins according to new capabilities")
+            supportedPlugins = Vector(
+                PluginFactory.pluginsForCapabilities(
+                    newIncomingCapabilities,
+                    newOutgoingCapabilities
+                )
+            )
+        }
 
-            //Log.e("KDE/onPacketReceived","Device not paired, will pass packet to unpairedPacketListeners");
+        return hasChanges
+    }
 
+    override fun onPacketReceived(np: NetworkPacket) {
+        countReceived(deviceId, np.type)
+
+        if (NetworkPacket.PACKET_TYPE_PAIR == np.type) {
+            Log.i("KDE/Device", "Pair packet")
+            pairingHandler.packetReceived(np)
+            return
+        }
+
+        // pluginsByIncomingInterface may not be built yet
+        if (pluginsByIncomingInterface.isEmpty) {
+            reloadPluginsFromSettings()
+        }
+
+        if (!isPaired) {
             // If it is pair packet, it should be captured by "if" at start
             // If not and device is paired, it should be captured by isPaired
-            // Else unpair, this handles the situation when one device unpairs, but other dont know like unpairing when wi-fi is off
+            // Else unpair, this handles the situation when one device unpairs,
+            // but other don't know like unpairing when wi-fi is off.
 
-            unpair();
+            unpair()
+        }
 
-            //If capabilities are not supported, iterate through all plugins.
-            Collection<String> targetPlugins = pluginsByIncomingInterface.get(np.getType());
-            // When a mapping doesn't exist, an empty collection is added to the map and
-            // then returned, so a null check is not necessary.
-            if (!targetPlugins.isEmpty()) {
-                for (String pluginKey : targetPlugins) {
-                    Plugin plugin = plugins.get(pluginKey);
+        // The following code when `isPaired == false` is NOT USED.
+        // It adds support for receiving packets from not trusted devices,
+        // but as of March 2023 no plugin implements "onUnpairedDevicePacketReceived".
+        notifyPluginPacketReceived(np)
+    }
+
+    private fun notifyPluginPacketReceived(np: NetworkPacket) {
+        val targetPlugins = pluginsByIncomingInterface[np.type] // Returns an empty collection if the key doesn't exist
+        if (targetPlugins.isEmpty()) {
+            if (np.type == NetworkPacket.PACKET_TYPE_NOTIFICATION) {
+                Log.d("KDE/Device", "Notification packet received")
+                val receiveNotificationsPlugin = ReceiveNotificationsPlugin()
+                try {
+                    //TODO: remove need for hardcoding?
+                    receiveNotificationsPlugin.runCatching {
+                        if (isPaired) onPacketReceived(np, deviceId) else onUnpairedDevicePacketReceived(np)
+                    }.onFailure { e ->
+                        Log.e("Device", "Exception in receiveNotificationPlugin's onPacketReceived()", e)
+                    }
+                } catch (e: java.lang.Exception) {
+                    Log.e(
+                        "KDE/Device",
+                        "Exception in ReceiveNotificationsPlugin onPacketReceived()",
+                        e
+                    )
                     try {
-                        plugin.onUnpairedDevicePacketReceived(np);
-                    } catch (Exception e) {
-                        Log.e("KDE/Device", "Exception in " + plugin.getDisplayName() + "'s onPacketReceived() in unPairedPacketListeners", e);
+                        Log.e("KDE/Device", "NetworkPacket:" + np.serialize())
+                    } catch (ignored: java.lang.Exception) {
                     }
                 }
-            } else {
-                Log.e("Device", "Ignoring packet with type " + np.getType() + " because no plugin can handle it");
+            }
+            Log.w("Device", "Ignoring packet with type ${np.type} because no plugin can handle it")
+            return
+        }
+        targetPlugins.map { it to loadedPlugins[it]!! }.forEach { (pluginKey, plugin) ->
+            plugin.runCatching {
+                if (isPaired) onPacketReceived(np) else onUnpairedDevicePacketReceived(np)
+            }.onFailure { e ->
+                Log.e("Device", "Exception in ${pluginKey}'s onPacketReceived()", e)
             }
         }
     }
 
-    public static abstract class SendPacketStatusCallback {
-        public abstract void onSuccess();
+    abstract class SendPacketStatusCallback {
+        abstract fun onSuccess()
 
-        public abstract void onFailure(Throwable e);
+        abstract fun onFailure(e: Throwable)
 
-        public void onProgressChanged(int percent) {
-        }
+        open fun onPayloadProgressChanged(percent: Int) {}
     }
 
-    private final SendPacketStatusCallback defaultCallback = new SendPacketStatusCallback() {
-        @Override
-        public void onSuccess() {
+    private val defaultCallback: SendPacketStatusCallback = object : SendPacketStatusCallback() {
+        override fun onSuccess() {
         }
 
-        @Override
-        public void onFailure(Throwable e) {
-            Log.e("KDE/sendPacket", "Exception", e);
+        override fun onFailure(e: Throwable) {
+            Log.e("Device", "Send packet exception", e)
         }
-    };
-
-    @AnyThread
-    public void sendPacket(NetworkPacket np) {
-        sendPacket(np, -1, defaultCallback);
-    }
-
-    @AnyThread
-    public void sendPacket(NetworkPacket np, int replaceID) {
-        sendPacket(np, replaceID, defaultCallback);
-    }
-
-    @WorkerThread
-    public boolean sendPacketBlocking(NetworkPacket np) {
-        return sendPacketBlocking(np, defaultCallback);
-    }
-
-    @AnyThread
-    public void sendPacket(final NetworkPacket np, final SendPacketStatusCallback callback) {
-        sendPacket(np, -1, callback);
     }
 
     /**
      * Send a packet to the device asynchronously
      * @param np The packet
-     * @param replaceID If positive, replaces all unsent packets with the same replaceID
      * @param callback A callback for success/failure
      */
     @AnyThread
-    public void sendPacket(final NetworkPacket np, int replaceID, final SendPacketStatusCallback callback) {
-        if (packetQueue == null) {
-            callback.onFailure(new Exception("Device disconnected!"));
-        } else {
-            packetQueue.addPacket(np, replaceID, callback);
-        }
+    fun sendPacket(np: NetworkPacket, callback: SendPacketStatusCallback) {
+        sendChannel.trySend(NetworkPacketWithCallback(np, callback))
     }
 
-    /**
-     * Check if we still have an unsent packet in the queue with the given ID.
-     * If so, remove it from the queue and return it
-     * @param replaceID The replace ID (must be positive)
-     * @return The found packet, or null
-     */
-    public NetworkPacket getAndRemoveUnsentPacket(int replaceID) {
-        if (packetQueue == null) {
-            return null;
-        } else {
-            return packetQueue.getAndRemoveUnsentPacket(replaceID);
-        }
-    }
+    @AnyThread
+    fun sendPacket(np: NetworkPacket) = sendPacket(np, defaultCallback)
+
+    @WorkerThread
+    fun sendPacketBlocking(np: NetworkPacket, callback: SendPacketStatusCallback): Boolean =
+        sendPacketBlocking(np, callback, false)
+
+    @WorkerThread
+    fun sendPacketBlocking(np: NetworkPacket): Boolean = sendPacketBlocking(np, defaultCallback, false)
 
     /**
-     * Send {@code np} over one of this device's connected {@link #links}.
+     * Send `np` over one of this device's connected [.links].
      *
-     * @param np       the packet to send
-     * @param callback a callback that can receive realtime updates
+     * @param np                        the packet to send
+     * @param callback                  a callback that can receive realtime updates
+     * @param sendPayloadFromSameThread when set to true and np contains a Payload, this function
+     * won't return until the Payload has been received by the
+     * other end, or times out after 10 seconds
      * @return true if the packet was sent ok, false otherwise
-     * @see BaseLink#sendPacket(NetworkPacket, SendPacketStatusCallback)
+     * @see BaseLink.sendPacket
      */
     @WorkerThread
-    public boolean sendPacketBlocking(final NetworkPacket np, final SendPacketStatusCallback callback) {
-
-        /*
-        if (!m_outgoingCapabilities.contains(np.getType()) && !NetworkPacket.protocolPacketTypes.contains(np.getType())) {
-            Log.e("Device/sendPacket", "Plugin tried to send an undeclared packet: " + np.getType());
-            Log.w("Device/sendPacket", "Declared outgoing packet types: " + Arrays.toString(m_outgoingCapabilities.toArray()));
-        }
-        */
-
-        boolean success = false;
-        //Make a copy to avoid concurrent modification exception if the original list changes
-        for (final BaseLink link : links) {
-            if (link == null)
-                continue; //Since we made a copy, maybe somebody destroyed the link in the meanwhile
-            success = link.sendPacket(np, callback);
-            if (success) break; //If the link didn't call sendSuccess(), try the next one
+    fun sendPacketBlocking(
+        np: NetworkPacket,
+        callback: SendPacketStatusCallback,
+        sendPayloadFromSameThread: Boolean
+    ): Boolean {
+        val success = links.any { link ->
+            try {
+                link.sendPacket(np, callback, sendPayloadFromSameThread)
+            } catch (e: IOException) {
+                Log.w("KDE/sendPacket", "Failed to send packet", e)
+                false
+            }.also { sent ->
+                countSent(deviceId, np.type, sent)
+            }
         }
 
         if (!success) {
-            Log.e("KDE/sendPacket", "No device link (of " + links.size() + " available) could send the packet. Packet " + np.getType() + " to " + name + " lost!");
+            Log.e(
+                "KDE/sendPacket",
+                "No device link (of ${links.size} available) could send the packet. Packet ${np.type} to ${deviceInfo.name} lost!"
+            )
         }
 
-        return success;
-
+        return success
     }
+
     //
     // Plugin-related functions
     //
-
-    @Nullable
-    public <T extends Plugin> T getPlugin(Class<T> pluginClass) {
-        Plugin plugin = getPlugin(Plugin.getPluginKey(pluginClass));
-        return (T) plugin;
+    fun <T : Plugin> getPlugin(pluginClass: Class<T>): T? {
+        val plugin = getPlugin(getPluginKey(pluginClass))
+        return plugin?.let(pluginClass::cast)
     }
 
-    @Nullable
-    public Plugin getPlugin(String pluginKey) {
-        return plugins.get(pluginKey);
+    fun getPlugin(pluginKey: String): Plugin? = loadedPlugins[pluginKey]
+
+    fun getPluginIncludingWithoutPermissions(pluginKey: String): Plugin? {
+        return loadedPlugins[pluginKey] ?: pluginsWithoutPermissions[pluginKey]
     }
 
-    private synchronized boolean addPlugin(final String pluginKey) {
-        Plugin existing = plugins.get(pluginKey);
+    @Synchronized
+    private fun addPlugin(pluginKey: String): Boolean {
+        val existing = loadedPlugins[pluginKey]
         if (existing != null) {
 
-            if (existing.isIncompatible()) {
-                Log.i("KDE/addPlugin", "Minimum requirements (e.g. API level) not fulfilled " + pluginKey);
-                return false;
-            }
-
-            //Log.w("KDE/addPlugin","plugin already present:" + pluginKey);
+            // Log.w("KDE/addPlugin","plugin already present:" + pluginKey);
             if (existing.checkOptionalPermissions()) {
-                Log.i("KDE/addPlugin", "Optional Permissions OK " + pluginKey);
-                pluginsWithoutOptionalPermissions.remove(pluginKey);
+                Log.d("KDE/addPlugin", "Optional Permissions OK $pluginKey")
+                pluginsWithoutOptionalPermissions.remove(pluginKey)
             } else {
-                Log.e("KDE/addPlugin", "No optional permission " + pluginKey);
-                pluginsWithoutOptionalPermissions.put(pluginKey, existing);
+                Log.d("KDE/addPlugin", "No optional permission $pluginKey")
+                pluginsWithoutOptionalPermissions[pluginKey] = existing
             }
-            return true;
+            return true
         }
 
-        final Plugin plugin = PluginFactory.instantiatePluginForDevice(context, pluginKey, this);
-        if (plugin == null) {
-            Log.e("KDE/addPlugin", "could not instantiate plugin: " + pluginKey);
-            return false;
+        val plugin = PluginFactory.instantiatePluginForDevice(context, pluginKey, this) ?: run {
+            Log.e("KDE/addPlugin", "could not instantiate plugin: $pluginKey")
+            return false
         }
 
-        if (plugin.isIncompatible()) {
-            Log.i("KDE/addPlugin", "Minimum requirements (e.g. API level) not fulfilled " + pluginKey);
-            return false;
-        }
 
-        plugins.put(pluginKey, plugin);
-
-
-        Log.i("KDE/addPlugin", "Permissions OK " + pluginKey); // permission check removed
-        pluginsWithoutPermissions.remove(pluginKey);
-        if (plugin.checkOptionalPermissions()) {
-            Log.i("KDE/addPlugin", "Optional Permissions OK " + pluginKey);
-            pluginsWithoutOptionalPermissions.remove(pluginKey);
+        if (!plugin.checkRequiredPermissions()) {
+            Log.d("KDE/addPlugin", "No permission $pluginKey")
+            loadedPlugins.remove(pluginKey)
+            pluginsWithoutPermissions[pluginKey] = plugin
+            return false
         } else {
-            Log.e("KDE/addPlugin", "No optional permission " + pluginKey);
-            pluginsWithoutOptionalPermissions.put(pluginKey, plugin);
-        }
-
-        try {
-            return plugin.onCreate();
-        } catch (Exception e) {
-            Log.e("KDE/addPlugin", "plugin failed to load " + pluginKey, e);
-            return false;
-        }
-    }
-
-    private synchronized boolean removePlugin(String pluginKey) {
-
-        Plugin plugin = plugins.remove(pluginKey);
-
-        if (plugin == null) {
-            return false;
-        }
-
-        try {
-            plugin.onDestroy();
-            //Log.e("removePlugin","removed " + pluginKey);
-        } catch (Exception e) {
-            Log.e("KDE/removePlugin", "Exception calling onDestroy for plugin " + pluginKey, e);
-        }
-
-        return true;
-    }
-
-    public void setPluginEnabled(String pluginKey, boolean value) {
-        settings.edit().putBoolean(pluginKey, value).apply();
-        reloadPluginsFromSettings();
-    }
-
-    public boolean isPluginEnabled(String pluginKey) {
-        boolean enabledByDefault = PluginFactory.getPluginInfo(pluginKey).isEnabledByDefault();
-        return settings.getBoolean(pluginKey, enabledByDefault);
-    }
-
-    public void reloadPluginsFromSettings() {
-        MultiValuedMap<String, String> newPluginsByIncomingInterface = new ArrayListValuedHashMap<>();
-
-        for (String pluginKey : supportedPlugins) {
-            PluginFactory.PluginInfo pluginInfo = PluginFactory.getPluginInfo(pluginKey);
-
-            boolean pluginEnabled = false;
-            boolean listenToUnpaired = pluginInfo.listenToUnpaired();
-            if ((isPaired() || listenToUnpaired) && isReachable()) {
-                pluginEnabled = isPluginEnabled(pluginKey);
+            Log.d("KDE/addPlugin", "Permissions OK $pluginKey")
+            loadedPlugins[pluginKey] = plugin
+            pluginsWithoutPermissions.remove(pluginKey)
+            if (plugin.checkOptionalPermissions()) {
+                Log.d("KDE/addPlugin", "Optional Permissions OK $pluginKey")
+                pluginsWithoutOptionalPermissions.remove(pluginKey)
+            } else {
+                Log.d("KDE/addPlugin", "No optional permission $pluginKey")
+                pluginsWithoutOptionalPermissions[pluginKey] = plugin
             }
+        }
 
-            if (pluginEnabled) {
-                boolean success = addPlugin(pluginKey);
-                if (success) {
-                    for (String packetType : pluginInfo.getSupportedPacketTypes()) {
-                        newPluginsByIncomingInterface.put(packetType, pluginKey);
-                    }
-                } else {
-                    removePlugin(pluginKey);
+        return runCatching {
+            plugin.onCreate()
+        }.onFailure {
+            Log.e("KDE/addPlugin", "plugin failed to load $pluginKey", it)
+        }.getOrDefault(false)
+    }
+
+    @Synchronized
+    private fun removePlugin(pluginKey: String): Boolean {
+        val plugin = loadedPlugins.remove(pluginKey) ?: return false
+
+        try {
+            plugin.onDestroy()
+            // Log.e("removePlugin","removed " + pluginKey);
+        } catch (e: Exception) {
+            Log.e("KDE/removePlugin", "Exception calling onDestroy for plugin $pluginKey", e)
+        }
+
+        return true
+    }
+
+    fun setPluginEnabled(pluginKey: String, value: Boolean) {
+        settings.edit().putBoolean(pluginKey, value).apply()
+        reloadPluginsFromSettings()
+    }
+
+    fun isPluginEnabled(pluginKey: String): Boolean {
+        val enabledByDefault = PluginFactory.getPluginInfo(pluginKey).isEnabledByDefault
+        return settings.getBoolean(pluginKey, enabledByDefault)
+    }
+
+    fun notifyPluginsOfDeviceUnpaired(context: Context, deviceId: String) {
+        for (pluginKey in supportedPlugins) {
+            // This is a hacky way to temporarily create plugins just so that they can be notified of the
+            // device being unpaired. This else part will only come into picture when 1) the user tries to
+            // unpair a device while that device is not reachable or 2) the plugin was never initialized
+            // for this device, e.g., the plugins that need additional permissions from the user, and those
+            // permissions were never granted.
+            val plugin = getPlugin(pluginKey) ?: PluginFactory.instantiatePluginForDevice(context, pluginKey, this)
+            plugin?.onDeviceUnpaired(context, deviceId)
+        }
+    }
+
+    fun reloadPluginsFromSettings() {
+        Log.i("Device", "${deviceInfo.name}: reloading plugins")
+        val newPluginsByIncomingInterface: MultiValuedMap<String, String> = ArrayListValuedHashMap()
+
+        supportedPlugins.forEach { pluginKey ->
+            val pluginInfo = PluginFactory.getPluginInfo(pluginKey)
+            val listenToUnpaired = pluginInfo.listenToUnpaired()
+
+            val pluginEnabled = (isPaired || listenToUnpaired) && this.isReachable && isPluginEnabled(pluginKey)
+
+            if (pluginEnabled && addPlugin(pluginKey)) {
+                pluginInfo.supportedPacketTypes.forEach { packetType ->
+                    newPluginsByIncomingInterface.put(packetType, pluginKey)
                 }
             } else {
-                removePlugin(pluginKey);
+                removePlugin(pluginKey)
             }
         }
 
-        pluginsByIncomingInterface = newPluginsByIncomingInterface;
+        pluginsByIncomingInterface = newPluginsByIncomingInterface
 
-        onPluginsChanged();
+        onPluginsChanged()
     }
 
-    public void onPluginsChanged() {
-        for (PluginsChangedListener listener : pluginsChangedListeners) {
-            listener.onPluginsChanged(Device.this);
-        }
+    fun onPluginsChanged() = pluginsChangedListeners.forEach { it.onPluginsChanged(this) }
+
+    fun addPluginsChangedListener(listener: PluginsChangedListener) = pluginsChangedListeners.add(listener)
+
+    fun removePluginsChangedListener(listener: PluginsChangedListener) = pluginsChangedListeners.remove(listener)
+
+    fun disconnect() {
+        links.forEach(BaseLink::disconnect)
     }
 
-    public ConcurrentHashMap<String, Plugin> getLoadedPlugins() {
-        return plugins;
+    fun isPairRequestedByPeer(): Boolean {
+        return pairingHandler.state == PairingHandler.PairState.RequestedByPeer
     }
 
-    public ConcurrentHashMap<String, Plugin> getPluginsWithoutPermissions() {
-        return pluginsWithoutPermissions;
-    }
-
-    public ConcurrentHashMap<String, Plugin> getPluginsWithoutOptionalPermissions() {
-        return pluginsWithoutOptionalPermissions;
-    }
-
-    public void addPluginsChangedListener(PluginsChangedListener listener) {
-        pluginsChangedListeners.add(listener);
-    }
-
-    public void removePluginsChangedListener(PluginsChangedListener listener) {
-        pluginsChangedListeners.remove(listener);
-    }
-
-    public void disconnect() {
-        for (BaseLink link : links) {
-            link.disconnect();
-        }
-    }
-
-    public boolean deviceShouldBeKeptAlive() {
-
-        SharedPreferences preferences = context.getSharedPreferences("trusted_devices", Context.MODE_PRIVATE);
-        if (preferences.contains(getDeviceId())) {
-            //Log.e("DeviceShouldBeKeptAlive", "because it's a paired device");
-            return true; //Already paired
-        }
-
-        for (BaseLink l : links) {
-            if (l.linkShouldBeKeptAlive()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public List<String> getSupportedPlugins() {
-        return supportedPlugins;
+    fun isPairRequested(): Boolean {
+        return pairingHandler.state == PairingHandler.PairState.Requested
     }
 
 }

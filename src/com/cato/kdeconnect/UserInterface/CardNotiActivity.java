@@ -16,6 +16,7 @@ import android.view.MenuItem;
 
 import com.cato.kdeconnect.BackgroundService;
 import com.cato.kdeconnect.Device;
+import com.cato.kdeconnect.KdeConnect;
 import com.cato.kdeconnect.LiveCardService;
 import com.cato.kdeconnect.NetworkPacket;
 import com.cato.kdeconnect.R;
@@ -44,27 +45,25 @@ public class CardNotiActivity extends Activity {
                     RecognizerIntent.EXTRA_RESULTS);
             String spokenText = results.get(0);
             Log.d("NotificationActivity", "Spoken text: " + spokenText);
-            BackgroundService.RunCommand(getApplicationContext(), service -> {
-                Collection<Device> devices = service.getDevices().values();
-                for (Device device : devices) {
-                    try {
-                        JSONObject notiObject = new JSONObject(getIntent().getStringExtra("notiObj"));
-                        String deviceId = notiObject.getString("deviceId");
-                        if (device.getDeviceId().equals(deviceId)) {
-                            NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_REPLY);
-                            np.set("requestReplyId", notiObject.getString("requestReplyId"));
-                            np.set("message", formatText(spokenText));
-                            device.sendPacket(np);
-                            Log.d("NotificationActivity", "Sent reply with request reply ID" + notiObject.getString("requestReplyId"));
-                            LiveCardService.notificationList.remove(0);
-                            LiveCardService.postUpdate(false);
-                            finish();
-                        }
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
+            Collection<Device> devices = KdeConnect.getInstance().getDevices().values();
+            for (Device device : devices) {
+                try {
+                    JSONObject notiObject = new JSONObject(getIntent().getStringExtra("notiObj"));
+                    String deviceId = notiObject.getString("deviceId");
+                    if (device.getDeviceId().equals(deviceId)) {
+                        NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_REPLY);
+                        np.set("requestReplyId", notiObject.getString("requestReplyId"));
+                        np.set("message", formatText(spokenText));
+                        device.sendPacket(np);
+                        Log.d("NotificationActivity", "Sent reply with request reply ID" + notiObject.getString("requestReplyId"));
+                        LiveCardService.notificationList.remove(0);
+                        LiveCardService.postUpdate(false);
+                        finish();
                     }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
                 }
-            });
+            }
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
@@ -112,25 +111,23 @@ public class CardNotiActivity extends Activity {
         Integer selection = item.getItemId();
         if (selection == R.id.menu_item_1) { // Dismiss
             Log.d("NotificationActivity", "Dismiss selected");
-            BackgroundService.RunCommand(getApplicationContext(), service -> {
-                Collection<Device> devices = service.getDevices().values();
-                for (Device device : devices) { //TODO: handle device not found
-                    try {
-                        JSONObject notiObject = new JSONObject(getIntent().getStringExtra("notiObj"));
-                        if (notiObject.has("deviceId")) {
-                            if (device.getDeviceId().equals(notiObject.getString("deviceId"))) {
-                                NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_REPLY);
-                                np.set("cancel", notiObject.getString("key"));
-                                device.sendPacket(np);
-                            }
-                        } else {
-                            Log.w("NotificationActivity", "No device ID found for notification, cannot dismiss remote noti");
+            Collection<Device> devices = KdeConnect.getInstance().getDevices().values();
+            for (Device device : devices) { //TODO: handle device not found
+                try {
+                    JSONObject notiObject = new JSONObject(getIntent().getStringExtra("notiObj"));
+                    if (notiObject.has("deviceId")) {
+                        if (device.getDeviceId().equals(notiObject.getString("deviceId"))) {
+                            NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_REPLY);
+                            np.set("cancel", notiObject.getString("key"));
+                            device.sendPacket(np);
                         }
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
+                    } else {
+                        Log.w("NotificationActivity", "No device ID found for notification, cannot dismiss remote noti");
                     }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
                 }
-            });
+            }
             LiveCardService.notificationList.remove(0);
             LiveCardService.postUpdate(false);
             finish();
@@ -140,25 +137,23 @@ public class CardNotiActivity extends Activity {
             displaySpeechRecognizer();
             return true;
         } else {
-            BackgroundService.RunCommand(getApplicationContext(), service -> {
-                Collection<Device> devices = service.getDevices().values();
-                for (Device device : devices) { //TODO: handle device not found
-                    try {
-                        JSONObject notiObject = new JSONObject(getIntent().getStringExtra("notiObj"));
-                        if (device.getDeviceId().equals(notiObject.getString("deviceId"))) {
-                            NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_ACTION);
-                            np.set("key", notiObject.getString("key"));
-                            np.set("action", (String) item.getTitle()); //will run the first action
-                            device.sendPacket(np);
-                            LiveCardService.notificationList.remove(0);
-                            LiveCardService.postUpdate(false);
-                            finish();
-                        }
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
+            Collection<Device> devices = KdeConnect.getInstance().getDevices().values();
+            for (Device device : devices) { //TODO: handle device not found
+                try {
+                    JSONObject notiObject = new JSONObject(getIntent().getStringExtra("notiObj"));
+                    if (device.getDeviceId().equals(notiObject.getString("deviceId"))) {
+                        NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_ACTION);
+                        np.set("key", notiObject.getString("key"));
+                        np.set("action", (String) item.getTitle()); //will run the first action
+                        device.sendPacket(np);
+                        LiveCardService.notificationList.remove(0);
+                        LiveCardService.postUpdate(false);
+                        finish();
                     }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
                 }
-            });
+            }
             return true;
         }
     }

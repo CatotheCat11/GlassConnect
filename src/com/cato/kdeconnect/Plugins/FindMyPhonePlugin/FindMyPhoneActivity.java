@@ -22,6 +22,7 @@ import android.view.Window;
 import android.view.WindowManager;
 
 import com.cato.kdeconnect.BackgroundService;
+import com.cato.kdeconnect.KdeConnect;
 import com.cato.kdeconnect.UserInterface.ThemeUtil;
 import com.cato.kdeconnect.UserInterface.TuggableView;
 import com.google.android.glass.content.Intents;
@@ -55,7 +56,7 @@ public class FindMyPhoneActivity extends Activity {
         }
 
         String deviceId = getIntent().getStringExtra(EXTRA_DEVICE_ID);
-        plugin = BackgroundService.getInstance().getDevice(deviceId).getPlugin(FindMyPhonePlugin.class);
+        plugin = KdeConnect.getInstance().getDevice(deviceId).getPlugin(FindMyPhonePlugin.class);
 
         Window window = this.getWindow();
         window.addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |

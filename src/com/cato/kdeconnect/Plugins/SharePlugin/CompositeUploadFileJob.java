@@ -9,6 +9,9 @@ package com.cato.kdeconnect.Plugins.SharePlugin;
 import android.os.Handler;
 import android.os.Looper;
 
+import androidx.annotation.GuardedBy;
+import androidx.annotation.NonNull;
+
 import com.cato.kdeconnect.Device;
 import com.cato.kdeconnect.NetworkPacket;
 import com.cato.kdeconnect.async.BackgroundJob;
@@ -16,9 +19,6 @@ import com.cato.kdeconnect.R;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import androidx.annotation.GuardedBy;
-import androidx.annotation.NonNull;
 
 /**
  * A type of {@link BackgroundJob} that sends Files to another device.
@@ -41,13 +41,13 @@ import androidx.annotation.NonNull;
  */
 public class CompositeUploadFileJob extends BackgroundJob<Device, Void> {
     private boolean isRunning;
-    private Handler handler;
+    private final Handler handler;
     private String currentFileName;
     private int currentFileNum;
     private boolean updatePacketPending;
     private long totalSend;
     private int prevProgressPercentage;
-    private UploadNotification uploadNotification;
+    private final UploadNotification uploadNotification;
 
     private final Object lock;                              //Use to protect concurrent access to the variables below
     @GuardedBy("lock")
@@ -79,7 +79,7 @@ public class CompositeUploadFileJob extends BackgroundJob<Device, Void> {
         sendPacketStatusCallback = new SendPacketStatusCallback();
     }
 
-    private Device getDevice() { return requestInfo; }
+    private Device getDevice() { return getRequestInfo(); }
 
     @Override
     public void run() {
@@ -92,7 +92,7 @@ public class CompositeUploadFileJob extends BackgroundJob<Device, Void> {
         }
 
         try {
-            while (!done && !canceled) {
+            while (!done && !isCancelled()) {
                 synchronized (lock) {
                     currentNetworkPacket = networkPacketList.remove(0);
                 }
@@ -104,7 +104,9 @@ public class CompositeUploadFileJob extends BackgroundJob<Device, Void> {
 
                 addTotalsToNetworkPacket(currentNetworkPacket);
 
-                if (!getDevice().sendPacketBlocking(currentNetworkPacket, sendPacketStatusCallback)) {
+                // We set sendPayloadFromSameThread to true so this call blocks until the payload
+                // has been received by the other end,  so payloads are sent one by one.
+                if (!getDevice().sendPacketBlocking(currentNetworkPacket, sendPacketStatusCallback, true)) {
                     throw new RuntimeException("Sending packet failed");
                 }
 
@@ -113,7 +115,7 @@ public class CompositeUploadFileJob extends BackgroundJob<Device, Void> {
                 }
             }
 
-            if (canceled) {
+            if (isCancelled()) {
                 uploadNotification.cancel();
             } else {
                 uploadNotification.setFinished(getDevice().getContext().getResources().getQuantityString(R.plurals.sent_files_title, currentFileNum, getDevice().getName(), currentFileNum));
@@ -125,7 +127,7 @@ public class CompositeUploadFileJob extends BackgroundJob<Device, Void> {
             int failedFiles;
             synchronized (lock) {
                 failedFiles = (totalNumFiles - currentFileNum + 1);
-                uploadNotification.setFinished(getDevice().getContext().getResources()
+                uploadNotification.setFailed(getDevice().getContext().getResources()
                         .getQuantityString(R.plurals.send_files_fail_title, failedFiles, getDevice().getName(),
                                 failedFiles, totalNumFiles));
             }
@@ -202,7 +204,7 @@ public class CompositeUploadFileJob extends BackgroundJob<Device, Void> {
 
     private class SendPacketStatusCallback extends Device.SendPacketStatusCallback {
         @Override
-        public void onProgressChanged(int percent) {
+        public void onPayloadProgressChanged(int percent) {
             float send = totalSend + (currentNetworkPacket.getPayloadSize() * ((float)percent / 100));
             int progress = (int)((send * 100) / totalPayloadSize);
 
@@ -227,7 +229,7 @@ public class CompositeUploadFileJob extends BackgroundJob<Device, Void> {
 
         @Override
         public void onFailure(Throwable e) {
-            //Ignored
+            // Handled in the run() function when sendPacketBlocking returns false
         }
     }
 }

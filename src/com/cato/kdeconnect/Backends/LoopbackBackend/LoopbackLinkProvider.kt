@@ -3,44 +3,30 @@
  *
  * SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
 */
+package com.cato.kdeconnect.Backends.LoopbackBackend
 
-package com.cato.kdeconnect.Backends.LoopbackBackend;
+import android.content.Context
+import android.net.Network
+import com.cato.kdeconnect.Backends.BaseLinkProvider
 
-import android.content.Context;
+class LoopbackLinkProvider : BaseLinkProvider {
+    private val context: Context
 
-import com.cato.kdeconnect.Backends.BaseLinkProvider;
-import com.cato.kdeconnect.NetworkPacket;
-
-public class LoopbackLinkProvider extends BaseLinkProvider {
-
-    private final Context context;
-
-    public LoopbackLinkProvider(Context context) {
-        this.context = context;
+    constructor(context: Context) : super() {
+        this.context = context
     }
 
-    @Override
-    public void onStart() {
-        onNetworkChange();
+    override fun getName(): String = "LoopbackLinkProvider"
+    override fun getPriority(): Int = 0
+
+    override fun onStart() {
+        onNetworkChange(null)
     }
 
-    @Override
-    public void onStop() {
-    }
+    override fun onStop() { }
 
-    @Override
-    public void onNetworkChange() {
-        NetworkPacket np = NetworkPacket.createIdentityPacket(context);
-        connectionAccepted(np, new LoopbackLink(context, this));
-    }
-/*
-    @Override
-    public int getPriority() {
-        return 0;
-    }
-*/
-    @Override
-    public String getName() {
-        return "LoopbackLinkProvider";
+    override fun onNetworkChange(network: Network?) {
+        val link = LoopbackLink(context, this)
+        onConnectionReceived(link)
     }
 }

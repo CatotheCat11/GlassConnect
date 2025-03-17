@@ -9,17 +9,18 @@ package com.cato.kdeconnect.UserInterface;
 import android.os.Bundle;
 import android.os.Parcelable;
 
-import com.cato.kdeconnect.BackgroundService;
-import com.cato.kdeconnect.Device;
-import com.cato.kdeconnect.R;
-
-import java.util.List;
-
 import androidx.annotation.NonNull;
 import androidx.fragment.app.FragmentActivity;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceScreen;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.cato.kdeconnect.Device;
+import com.cato.kdeconnect.KdeConnect;
+import com.cato.kdeconnect.Plugins.PluginFactory;
+import com.cato.kdeconnect.R;
+
+import java.util.List;
 
 public class PluginSettingsListFragment extends PreferenceFragmentCompat {
     private static final String ARG_DEVICE_ID = "deviceId";
@@ -76,25 +77,24 @@ public class PluginSettingsListFragment extends PreferenceFragmentCompat {
 
         final String deviceId = getArguments().getString(ARG_DEVICE_ID);
 
-        BackgroundService.RunCommand(requireContext(), service -> {
-            final Device device = service.getDevice(deviceId);
-            if (device == null) {
-                final FragmentActivity activity = requireActivity();
-                activity.runOnUiThread(activity::finish);
-                return;
-            }
-            List<String> plugins = device.getSupportedPlugins();
+        Device device = KdeConnect.getInstance().getDevice(deviceId);
+        if (device == null) {
+            final FragmentActivity activity = requireActivity();
+            activity.runOnUiThread(activity::finish);
+            return;
+        }
 
-            for (final String pluginKey : plugins) {
-                //TODO: Use PreferenceManagers context
-                PluginPreference pref = new PluginPreference(requireContext(), pluginKey, device, callback);
-                preferenceScreen.addPreference(pref);
-            }
-        });
+        List<String> plugins = PluginFactory.sortPluginList(device.getSupportedPlugins());
+        for (final String pluginKey : plugins) {
+            //TODO: Use PreferenceManagers context
+            PluginPreference pref = new PluginPreference(requireContext(), pluginKey, device, callback);
+            preferenceScreen.addPreference(pref);
+        }
     }
 
+    @NonNull
     @Override
-    protected RecyclerView.Adapter onCreateAdapter(PreferenceScreen preferenceScreen) {
+    protected RecyclerView.Adapter onCreateAdapter(@NonNull PreferenceScreen preferenceScreen) {
         RecyclerView.Adapter adapter = super.onCreateAdapter(preferenceScreen);
 
         /*
@@ -144,7 +144,7 @@ public class PluginSettingsListFragment extends PreferenceFragmentCompat {
     }
 
     @Override
-    public void onSaveInstanceState(Bundle outState) {
+    public void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
 
         Parcelable layoutManagerState = recyclerViewLayoutManagerState;

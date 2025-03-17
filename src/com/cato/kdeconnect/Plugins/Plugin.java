@@ -300,4 +300,6 @@ public abstract class Plugin {
     public int getMinSdk() {
         return Build.VERSION_CODES.BASE;
     }
+
+    public void onDeviceUnpaired(Context context, String deviceId) {}
 }

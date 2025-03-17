@@ -84,6 +84,7 @@ public class LiveCardService extends Service {
     }
 
     public static void mediaSessionUpdated(String deviceId, String playerId, MprisPlugin.MprisPlayer status) {
+        Log.d(MEDIA_CARD_TAG, "Media session updated");
         playerStatus = status;
         Intent menuIntent = new Intent(sInstance, MediaActivity.class);
         menuIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
@@ -115,6 +116,7 @@ public class LiveCardService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        Log.d(NOTI_CARD_TAG, "Service created");
         sInstance = this;
         CustomTrust customTrust = new CustomTrust(getApplicationContext());
         client = customTrust.getClient();
@@ -356,7 +358,7 @@ public class LiveCardService extends Service {
                 mMediaCardView.setTextViewText(R.id.media_time, formatTime(playerStatus.getPosition()) + "/" + formatTime(playerStatus.getLength()));
                 mMediaCardView.setProgressBar(R.id.media_progress, (int) playerStatus.getLength(), (int) playerStatus.getPosition(), false);
                 // Live variable to prevent repeatedly updating info every second while playing
-                if (playerStatus.isPlaying()) {
+                if (playerStatus.isPlaying() && playerStatus.getPosition() <= playerStatus.getLength()) {
                     mMediaCardView.setImageViewResource(R.id.media_play, R.drawable.ic_play_white);
                     live = true;
                 } else {

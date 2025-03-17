@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.util.Log;
 
 import com.cato.kdeconnect.BackgroundService;
+import com.cato.kdeconnect.KdeConnect;
 
 public class FindMyPhoneReceiver extends BroadcastReceiver {
     final static String ACTION_FOUND_IT = "com.cato.kdeconnect.Plugins.FindMyPhonePlugin.foundIt";
@@ -30,6 +31,10 @@ public class FindMyPhoneReceiver extends BroadcastReceiver {
 
         String deviceId = intent.getStringExtra(EXTRA_DEVICE_ID);
 
-        BackgroundService.RunWithPlugin(context, deviceId, FindMyPhonePlugin.class, FindMyPhonePlugin::stopPlaying);
+        FindMyPhonePlugin plugin = KdeConnect.getInstance().getDevicePlugin(deviceId, FindMyPhonePlugin.class);
+        if (plugin == null) {
+            return;
+        }
+        plugin.stopPlaying();
     }
 }

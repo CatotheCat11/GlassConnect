@@ -22,6 +22,7 @@ import com.bumptech.glide.load.DecodeFormat;
 import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.transition.Transition;
 import com.cato.kdeconnect.BackgroundService;
+import com.cato.kdeconnect.KdeConnect;
 import com.cato.kdeconnect.R;
 import com.cato.kdeconnect.UserInterface.MainActivity;
 import com.google.android.glass.media.Sounds;
@@ -67,11 +68,10 @@ public class SendFileActivity extends Activity {
             mIndeterminate.hide();
             mIndeterminate = null;
         }
-        BackgroundService.RunWithPlugin(this, intent.getStringExtra("deviceId"), SharePlugin.class, plugin -> {
-            if (plugin.uploadFileJob != null) {
-                plugin.cancelJob(plugin.uploadFileJob.getId());
-            }
-        });
+        SharePlugin plugin = KdeConnect.getInstance().getDevicePlugin(intent.getStringExtra("deviceId"), SharePlugin.class);
+        if (plugin.uploadFileJob != null) {
+            plugin.cancelJob(plugin.uploadFileJob.getId());
+        }
     }
     private void getMediaFiles() {
         mCards = new ArrayList<CardBuilder>();
@@ -175,6 +175,7 @@ public class SendFileActivity extends Activity {
         });
     }
     private void sendUriToPlugin(ArrayList<Uri> uris) {
-        BackgroundService.RunWithPlugin(this, intent.getStringExtra("deviceId"), SharePlugin.class, plugin -> plugin.sendUriList(uris));
+        SharePlugin plugin = KdeConnect.getInstance().getDevicePlugin(intent.getStringExtra("deviceId"), SharePlugin.class);
+        plugin.sendUriList(uris);
     }
 }

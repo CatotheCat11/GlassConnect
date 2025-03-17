@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
 
 import com.cato.kdeconnect.BackgroundService;
+import com.cato.kdeconnect.KdeConnect;
 
 import java.io.File;
 import java.io.IOException;
@@ -58,13 +59,12 @@ public class PhotoActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        BackgroundService.RunWithPlugin(this, getIntent().getStringExtra("deviceId"), PhotoPlugin.class, plugin -> {
-            if (resultCode == -1) {
-                plugin.sendPhoto(photoURI);
-            } else {
-                plugin.sendCancel();
-            }
-        });
+        PhotoPlugin plugin = KdeConnect.getInstance().getDevicePlugin(getIntent().getStringExtra("deviceId"), PhotoPlugin.class);
+        if (resultCode == -1) {
+            plugin.sendPhoto(photoURI);
+        } else {
+            plugin.sendCancel();
+        }
         finish();
     }
 }

@@ -28,6 +28,7 @@ import android.widget.AdapterView;
 
 import com.cato.kdeconnect.BackgroundService;
 import com.cato.kdeconnect.Device;
+import com.cato.kdeconnect.KdeConnect;
 import com.cato.kdeconnect.LiveCardService;
 import com.cato.kdeconnect.NetworkPacket;
 import com.cato.kdeconnect.R;
@@ -242,25 +243,23 @@ public class NotificationActivity extends Activity {
         Integer selection = item.getItemId();
         if (selection == R.id.menu_item_1) { // Dismiss
             Log.d("NotificationActivity", "Dismiss selected");
-            BackgroundService.RunCommand(getApplicationContext(), service -> {
-                Collection<Device> devices = service.getDevices().values();
-                for (Device device : devices) { //TODO: handle device not found
-                    try {
-                        JSONObject notiObject = notiList.getJSONObject(notiList.length() - (1 + mCardScrollView.getSelectedItemPosition()));
-                        if (notiObject.has("deviceId")) {
-                            if (device.getDeviceId().equals(notiObject.getString("deviceId"))) {
-                                NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_REPLY);
-                                np.set("cancel", notiObject.getString("key"));
-                                device.sendPacket(np);
-                            }
-                        } else {
-                            Log.w("NotificationActivity", "No device ID found for notification, cannot dismiss remote noti");
+            Collection<Device> devices = KdeConnect.getInstance().getDevices().values();
+            for (Device device : devices) { //TODO: handle device not found
+                try {
+                    JSONObject notiObject = notiList.getJSONObject(notiList.length() - (1 + mCardScrollView.getSelectedItemPosition()));
+                    if (notiObject.has("deviceId")) {
+                        if (device.getDeviceId().equals(notiObject.getString("deviceId"))) {
+                            NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_REPLY);
+                            np.set("cancel", notiObject.getString("key"));
+                            device.sendPacket(np);
                         }
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
+                    } else {
+                        Log.w("NotificationActivity", "No device ID found for notification, cannot dismiss remote noti");
                     }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
                 }
-            });
+            }
             removeSelectedNoti();
             return true;
         } else if (selection == R.id.menu_item_5) { // Reply
@@ -268,23 +267,21 @@ public class NotificationActivity extends Activity {
             displaySpeechRecognizer();
             return true;
         } else {
-            BackgroundService.RunCommand(getApplicationContext(), service -> {
-                Collection<Device> devices = service.getDevices().values();
-                for (Device device : devices) { //TODO: handle device not found
-                    try {
-                        JSONObject notiObject = notiList.getJSONObject(notiList.length() - (1 + mCardScrollView.getSelectedItemPosition()));
-                        if (device.getDeviceId().equals(notiObject.getString("deviceId"))) {
-                            NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_ACTION);
-                            np.set("key", notiObject.getString("key"));
-                            np.set("action", (String) item.getTitle()); //will run the first action
-                            device.sendPacket(np);
-                            removeSelectedNoti();
-                        }
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
+            Collection<Device> devices = KdeConnect.getInstance().getDevices().values();
+            for (Device device : devices) { //TODO: handle device not found
+                try {
+                    JSONObject notiObject = notiList.getJSONObject(notiList.length() - (1 + mCardScrollView.getSelectedItemPosition()));
+                    if (device.getDeviceId().equals(notiObject.getString("deviceId"))) {
+                        NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_ACTION);
+                        np.set("key", notiObject.getString("key"));
+                        np.set("action", (String) item.getTitle()); //will run the first action
+                        device.sendPacket(np);
+                        removeSelectedNoti();
                     }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
                 }
-            });
+            }
             return true;
         }
     }
@@ -305,26 +302,24 @@ public class NotificationActivity extends Activity {
                     RecognizerIntent.EXTRA_RESULTS);
             String spokenText = results.get(0);
             Log.d("NotificationActivity", "Spoken text: " + spokenText);
-            BackgroundService.RunCommand(getApplicationContext(), service -> {
-                Collection<Device> devices = service.getDevices().values();
-                try {
-                    JSONObject notiObject = notiList.getJSONObject(notiList.length() - (1 + mCardScrollView.getSelectedItemPosition()));
-                    String deviceId = notiObject.getString("deviceId");
-                    for (Device device : devices) {
-                        if (device.getDeviceId().equals(deviceId)) {
-                            NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_REPLY);
-                            np.set("requestReplyId", notiObject.getString("requestReplyId"));
-                            np.set("message", formatText(spokenText));
-                            device.sendPacket(np);
-                            Log.d("NotificationActivity", "Sent reply with request reply ID" + notiObject.getString("requestReplyId"));
-                            removeSelectedNoti();
-                            return;
-                        }
+            Collection<Device> devices = KdeConnect.getInstance().getDevices().values();
+            try {
+                JSONObject notiObject = notiList.getJSONObject(notiList.length() - (1 + mCardScrollView.getSelectedItemPosition()));
+                String deviceId = notiObject.getString("deviceId");
+                for (Device device : devices) {
+                    if (device.getDeviceId().equals(deviceId)) {
+                        NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_NOTIFICATION_REPLY);
+                        np.set("requestReplyId", notiObject.getString("requestReplyId"));
+                        np.set("message", formatText(spokenText));
+                        device.sendPacket(np);
+                        Log.d("NotificationActivity", "Sent reply with request reply ID" + notiObject.getString("requestReplyId"));
+                        removeSelectedNoti();
+                        return;
                     }
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
                 }
-            });
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
         super.onActivityResult(requestCode, resultCode, data);
     }

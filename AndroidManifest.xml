@@ -21,8 +21,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- <uses-permission android:name="android.permission.BLUETOOTH" /> -->
-    <!-- <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" /> -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
@@ -50,7 +50,6 @@
     <uses-permission android:name="android.permission.READ_SETTINGS"/>
     <uses-permission android:name="android.permission.READ_LOGS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="com.google.android.glass.permission.DEVELOPMENT" />
 
 
@@ -61,7 +60,7 @@
         android:supportsRtl="true"
         android:allowBackup="false"
         android:theme="@style/KdeConnectTheme"
-        android:name="com.cato.kdeconnect.MyApplication">
+        android:name=".MyApplication">
 
         <receiver
             android:name="com.android.mms.transaction.PushReceiver"
@@ -86,6 +85,12 @@
             android:enabled="true" />
         <service
             android:name="com.cato.kdeconnect.LiveCardService"
+            android:foregroundServiceType="connectedDevice"
+            android:icon="@drawable/icon"
+            android:enabled="true" />
+
+        <service
+            android:name="com.cato.kdeconnect.KdeConnect"
             android:foregroundServiceType="connectedDevice"
             android:icon="@drawable/icon"
             android:enabled="true" />

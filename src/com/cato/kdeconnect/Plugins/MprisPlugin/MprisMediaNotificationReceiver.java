@@ -13,6 +13,7 @@ import android.support.v4.media.session.MediaSessionCompat;
 
 import com.cato.kdeconnect.BackgroundService;
 import com.cato.kdeconnect.Device;
+import com.cato.kdeconnect.KdeConnect;
 
 /**
  * Called when the mpris media notification's buttons are pressed
@@ -41,7 +42,7 @@ public class MprisMediaNotificationReceiver extends BroadcastReceiver {
             //Get the correct device, the mpris plugin and the mpris player
             BackgroundService service = BackgroundService.getInstance();
             if (service == null) return;
-            Device device = service.getDevice(intent.getStringExtra(EXTRA_DEVICE_ID));
+            Device device = KdeConnect.getInstance().getDevice(intent.getStringExtra(EXTRA_DEVICE_ID));
             if (device == null) return;
             MprisPlugin mpris = device.getPlugin(MprisPlugin.class);
             if (mpris == null) return;

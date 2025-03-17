@@ -16,6 +16,7 @@ import android.view.WindowManager;
 import androidx.core.content.ContextCompat;
 
 import com.cato.kdeconnect.BackgroundService;
+import com.cato.kdeconnect.KdeConnect;
 import com.google.android.glass.media.Sounds;
 import com.google.android.glass.touchpad.Gesture;
 import com.google.android.glass.touchpad.GestureDetector;
@@ -44,7 +45,7 @@ public class MousePadActivity extends Activity implements SensorEventListener {
         }
 
         String deviceId = getIntent().getStringExtra(EXTRA_DEVICE_ID);
-        plugin = BackgroundService.getInstance().getDevice(deviceId).getPlugin(MousePadPlugin.class);
+        plugin = KdeConnect.getInstance().getDevice(deviceId).getPlugin(MousePadPlugin.class);
 
         mGestureDetector = createGestureDetector(this);
         mAudioManager = (AudioManager) this.getSystemService(Context.AUDIO_SERVICE);

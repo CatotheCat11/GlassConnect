@@ -24,7 +24,7 @@ import androidx.core.content.ContextCompat;
 import org.apache.commons.lang3.ArrayUtils;
 import com.cato.kdeconnect.Helpers.DeviceHelper;
 import com.cato.kdeconnect.Helpers.NotificationHelper;
-import com.cato.kdeconnect.MyApplication;
+import com.cato.kdeconnect.KdeConnect;
 import com.cato.kdeconnect.NetworkPacket;
 import com.cato.kdeconnect.Plugins.Plugin;
 import com.cato.kdeconnect.Plugins.PluginFactory;
@@ -46,12 +46,12 @@ public class FindMyPhonePlugin extends Plugin {
 
     @Override
     public String getDisplayName() {
-        switch (DeviceHelper.getDeviceType(context)) {
-            case Tv:
+        switch (DeviceHelper.getDeviceType()) {
+            case TV:
                 return context.getString(R.string.findmyphone_title_tv);
-            case Tablet:
+            case TABLET:
                 return context.getString(R.string.findmyphone_title_tablet);
-            case Phone:
+            case PHONE:
             default:
                 return context.getString(R.string.findmyphone_title);
         }
@@ -98,7 +98,7 @@ public class FindMyPhonePlugin extends Plugin {
 
     @Override
     public boolean onPacketReceived(NetworkPacket np) {
-        if (Build.VERSION.SDK_INT < 29 || MyApplication.isInForeground()) {
+        if (Build.VERSION.SDK_INT < 29) {
             Intent intent = new Intent(context, FindMyPhoneActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent.putExtra(FindMyPhoneActivity.EXTRA_DEVICE_ID, device.getDeviceId());

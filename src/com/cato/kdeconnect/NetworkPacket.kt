@@ -3,361 +3,295 @@
  *
  * SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
 */
+package com.cato.kdeconnect
 
-package com.cato.kdeconnect;
+import org.json.JSONArray
+import org.json.JSONException
+import org.json.JSONObject
+import java.io.ByteArrayInputStream
+import java.io.IOException
+import java.io.InputStream
+import java.net.Socket
 
-import android.content.Context;
-import android.util.Log;
+class NetworkPacket private constructor(
+    val type: String,
+    private val mBody: JSONObject,
+    var payload: Payload?,
+    var payloadTransferInfo: JSONObject,
+) {
+    constructor(type: String) : this(
+        type = type,
+        mBody = JSONObject(),
+        payload = null,
+        payloadTransferInfo = JSONObject()
+    )
+    
 
-import org.apache.commons.io.IOUtils;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-import com.cato.kdeconnect.Helpers.DeviceHelper;
-import com.cato.kdeconnect.Plugins.PluginFactory;
+    @Volatile
+    var isCanceled: Boolean = false
+        private set
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.Socket;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
-public class NetworkPacket {
-
-    public final static String PACKET_TYPE_IDENTITY = "kdeconnect.identity";
-    public final static String PACKET_TYPE_PAIR = "kdeconnect.pair";
-    //copied over from notificationsplugin and made public
-    public final static String PACKET_TYPE_NOTIFICATION = "kdeconnect.notification";
-    public final static String PACKET_TYPE_NOTIFICATION_REPLY = "kdeconnect.notification.reply";
-    public final static String PACKET_TYPE_NOTIFICATION_ACTION = "kdeconnect.notification.action";
-
-    public final static int PACKET_REPLACEID_MOUSEMOVE = 0;
-    public final static int PACKET_REPLACEID_PRESENTERPOINTER = 1;
-
-    public static Set<String> protocolPacketTypes = new HashSet<String>() {{
-        add(PACKET_TYPE_IDENTITY);
-        add(PACKET_TYPE_PAIR);
-    }};
-
-    private long mId;
-    String mType;
-    private JSONObject mBody;
-    private Payload mPayload;
-    private JSONObject mPayloadTransferInfo;
-    private volatile boolean canceled;
-
-    private NetworkPacket() {
-
+    fun cancel() {
+        isCanceled = true
     }
 
-    public NetworkPacket(String type) {
-        mId = System.currentTimeMillis();
-        mType = type;
-        mBody = new JSONObject();
-        mPayload = null;
-        mPayloadTransferInfo = new JSONObject();
+    // Most commons getters and setters defined for convenience
+    fun getString(key: String): String {
+        return mBody.optString(key, "")
     }
 
-    public boolean isCanceled() { return canceled; }
-    public void cancel() { canceled = true; }
-
-    public String getType() {
-        return mType;
+    fun getStringOrNull(key: String): String? {
+        return if (mBody.has(key)) mBody.getString(key)
+        else null
     }
 
-    public long getId() {
-        return mId;
+    fun getString(key: String, defaultValue: String): String {
+        return mBody.optString(key, defaultValue)
     }
 
-    //Most commons getters and setters defined for convenience
-    public String getString(String key) {
-        return mBody.optString(key, "");
-    }
-
-    public String getString(String key, String defaultValue) {
-        return mBody.optString(key, defaultValue);
-    }
-
-    public void set(String key, String value) {
-        if (value == null) return;
+    operator fun set(key: String, value: String?) {
+        if (value == null) return
         try {
-            mBody.put(key, value);
-        } catch (Exception ignored) {
+            mBody.put(key, value)
+        } catch (ignored: Exception) {
         }
     }
 
-    public int getInt(String key) {
-        return mBody.optInt(key, -1);
+    fun getInt(key: String): Int {
+        return mBody.optInt(key, -1)
     }
 
-    public int getInt(String key, int defaultValue) {
-        return mBody.optInt(key, defaultValue);
+    fun getInt(key: String, defaultValue: Int): Int {
+        return mBody.optInt(key, defaultValue)
     }
 
-    public void set(String key, int value) {
+    operator fun set(key: String, value: Int) {
         try {
-            mBody.put(key, value);
-        } catch (Exception ignored) {
+            mBody.put(key, value)
+        } catch (ignored: Exception) {
         }
     }
 
-    public long getLong(String key) {
-        return mBody.optLong(key, -1);
+    fun getLong(key: String): Long {
+        return mBody.optLong(key, -1)
     }
 
-    public long getLong(String key, long defaultValue) {
-        return mBody.optLong(key, defaultValue);
+    fun getLong(key: String, defaultValue: Long): Long {
+        return mBody.optLong(key, defaultValue)
     }
 
-    public void set(String key, long value) {
+    operator fun set(key: String, value: Long) {
         try {
-            mBody.put(key, value);
-        } catch (Exception ignored) {
+            mBody.put(key, value)
+        } catch (ignored: Exception) {
         }
     }
 
-    public boolean getBoolean(String key) {
-        return mBody.optBoolean(key, false);
+    fun getBoolean(key: String): Boolean {
+        return mBody.optBoolean(key, false)
     }
 
-    public boolean getBoolean(String key, boolean defaultValue) {
-        return mBody.optBoolean(key, defaultValue);
+    fun getBoolean(key: String, defaultValue: Boolean): Boolean {
+        return mBody.optBoolean(key, defaultValue)
     }
 
-    public void set(String key, boolean value) {
+    operator fun set(key: String, value: Boolean) {
         try {
-            mBody.put(key, value);
-        } catch (Exception ignored) {
+            mBody.put(key, value)
+        } catch (ignored: Exception) {
         }
     }
 
-    public double getDouble(String key) {
-        return mBody.optDouble(key, Double.NaN);
+    fun getDouble(key: String): Double {
+        return mBody.optDouble(key, Double.NaN)
     }
 
-    public double getDouble(String key, double defaultValue) {
-        return mBody.optDouble(key, defaultValue);
+    fun getDouble(key: String, defaultValue: Double): Double {
+        return mBody.optDouble(key, defaultValue)
     }
 
-    public void set(String key, double value) {
+    operator fun set(key: String, value: Double) {
         try {
-            mBody.put(key, value);
-        } catch (Exception ignored) {
+            mBody.put(key, value)
+        } catch (ignored: Exception) {
         }
     }
 
-    public JSONArray getJSONArray(String key) {
-        return mBody.optJSONArray(key);
+    fun getJSONArray(key: String): JSONArray? {
+        return mBody.optJSONArray(key)
     }
 
-    public void set(String key, JSONArray value) {
+    operator fun set(key: String, value: JSONArray?) {
         try {
-            mBody.put(key, value);
-        } catch (Exception ignored) {
+            mBody.put(key, value)
+        } catch (ignored: Exception) {
         }
     }
 
-    public JSONObject getJSONObject(String key) {
-        return mBody.optJSONObject(key);
+    fun getJSONObject(key: String): JSONObject? {
+        return mBody.optJSONObject(key)
     }
 
-    public void set(String key, JSONObject value) {
+    operator fun set(key: String, value: JSONObject?) {
         try {
-            mBody.put(key, value);
-        } catch (JSONException ignored) {
+            mBody.put(key, value)
+        } catch (ignored: JSONException) {
         }
     }
 
-    private Set<String> getStringSet(String key) {
-        JSONArray jsonArray = mBody.optJSONArray(key);
-        if (jsonArray == null) return null;
-        Set<String> list = new HashSet<>();
-        int length = jsonArray.length();
-        for (int i = 0; i < length; i++) {
+    fun getStringSet(key: String): Set<String>? {
+        val jsonArray = mBody.optJSONArray(key) ?: return null
+        val list: MutableSet<String> = HashSet()
+        val length = jsonArray.length()
+        for (i in 0 until length) {
             try {
-                String str = jsonArray.getString(i);
-                list.add(str);
-            } catch (Exception ignored) {
+                val str = jsonArray.getString(i)
+                list.add(str)
+            } catch (ignored: Exception) {
             }
         }
-        return list;
+        return list
     }
 
-    public Set<String> getStringSet(String key, Set<String> defaultValue) {
-        if (mBody.has(key)) return getStringSet(key);
-        else return defaultValue;
+    fun getStringSet(key: String, defaultValue: Set<String>?): Set<String>? {
+        return if (mBody.has(key)) getStringSet(key)
+        else defaultValue
     }
 
-    public void set(String key, Set<String> value) {
+    operator fun set(key: String, value: Set<String>) {
         try {
-            JSONArray jsonArray = new JSONArray();
-            for (String str : value) {
-                jsonArray.put(str);
+            val jsonArray = JSONArray()
+            for (str in value) {
+                jsonArray.put(str)
             }
-            mBody.put(key, jsonArray);
-        } catch (Exception ignored) {
+            mBody.put(key, jsonArray)
+        } catch (ignored: Exception) {
         }
     }
 
-    public List<String> getStringList(String key) {
-        JSONArray jsonArray = mBody.optJSONArray(key);
-        if (jsonArray == null) return null;
-        List<String> list = new ArrayList<>();
-        int length = jsonArray.length();
-        for (int i = 0; i < length; i++) {
+    fun getStringList(key: String): List<String>? {
+        val jsonArray = mBody.optJSONArray(key) ?: return null
+        val list: MutableList<String> = ArrayList()
+        val length = jsonArray.length()
+        for (i in 0 until length) {
             try {
-                String str = jsonArray.getString(i);
-                list.add(str);
-            } catch (Exception ignored) {
+                val str = jsonArray.getString(i)
+                list.add(str)
+            } catch (ignored: Exception) {
             }
         }
-        return list;
+        return list
     }
 
-    public List<String> getStringList(String key, List<String> defaultValue) {
-        if (mBody.has(key)) return getStringList(key);
-        else return defaultValue;
+    fun getStringList(key: String, defaultValue: List<String>?): List<String>? {
+        return if (mBody.has(key)) getStringList(key)
+        else defaultValue
     }
 
-    public void set(String key, List<String> value) {
+    operator fun set(key: String, value: List<String>) {
         try {
-            JSONArray jsonArray = new JSONArray();
-            for (String str : value) {
-                jsonArray.put(str);
+            val jsonArray = JSONArray()
+            for (str in value) {
+                jsonArray.put(str)
             }
-            mBody.put(key, jsonArray);
-        } catch (Exception ignored) {
+            mBody.put(key, jsonArray)
+        } catch (ignored: Exception) {
         }
     }
 
-    public boolean has(String key) {
-        return mBody.has(key);
+    fun has(key: String): Boolean {
+        return mBody.has(key)
     }
 
-    public String serialize() throws JSONException {
-        JSONObject jo = new JSONObject();
-        jo.put("id", mId);
-        jo.put("type", mType);
-        jo.put("body", mBody);
+    @Throws(JSONException::class)
+    fun serialize(): String {
+        val jo = JSONObject()
+        jo.put("id", System.currentTimeMillis())
+        jo.put("type", type)
+        jo.put("body", mBody)
         if (hasPayload()) {
-            jo.put("payloadSize", mPayload.payloadSize);
-            jo.put("payloadTransferInfo", mPayloadTransferInfo);
+            jo.put("payloadSize", payload!!.payloadSize)
+            jo.put("payloadTransferInfo", payloadTransferInfo)
         }
-        //QJSon does not escape slashes, but Java JSONObject does. Converting to QJson format.
-        return jo.toString().replace("\\/", "/") + "\n";
-    }
-
-    static public NetworkPacket unserialize(String s) throws JSONException {
-
-        NetworkPacket np = new NetworkPacket();
-        JSONObject jo = new JSONObject(s);
-        np.mId = jo.getLong("id");
-        np.mType = jo.getString("type");
-        np.mBody = jo.getJSONObject("body");
-        if (jo.has("payloadSize")) {
-            np.mPayloadTransferInfo = jo.getJSONObject("payloadTransferInfo");
-            np.mPayload = new Payload(jo.getLong("payloadSize"));
-        } else {
-            np.mPayloadTransferInfo = new JSONObject();
-            np.mPayload = new Payload(0);
-        }
-        return np;
-    }
-
-    static public NetworkPacket createIdentityPacket(Context context) {
-
-        NetworkPacket np = new NetworkPacket(NetworkPacket.PACKET_TYPE_IDENTITY);
-
-        String deviceId = DeviceHelper.getDeviceId(context);
+        // QJSon does not escape slashes, but Java JSONObject does. Converting to QJson format.
         try {
-            np.mBody.put("deviceId", deviceId);
-            np.mBody.put("deviceName", DeviceHelper.getDeviceName(context));
-            np.mBody.put("protocolVersion", DeviceHelper.ProtocolVersion);
-            np.mBody.put("deviceType", DeviceHelper.getDeviceType(context).toString());
-            np.mBody.put("incomingCapabilities", new JSONArray(PluginFactory.getIncomingCapabilities()));
-            np.mBody.put("outgoingCapabilities", new JSONArray(PluginFactory.getOutgoingCapabilities()));
-        } catch (Exception e) {
-            Log.e("NetworkPacket", "Exception on createIdentityPacket", e);
+            return jo.toString().replace("\\/", "/") + "\n"
+        } catch (e : OutOfMemoryError) {
+            throw RuntimeException("OOM serializing packet of type $type", e)
         }
-
-        return np;
-
     }
 
-    public void setPayload(Payload payload) { mPayload = payload; }
+    val payloadSize: Long
+        get() = payload?.payloadSize ?: 0
 
-    public Payload getPayload() {
-        return mPayload;
+    fun hasPayload(): Boolean {
+        val payload = payload
+        return payload != null && payload.payloadSize != 0L
     }
 
-    public long getPayloadSize() {
-        return mPayload == null ? 0 : mPayload.payloadSize;
+    fun hasPayloadTransferInfo(): Boolean {
+        return payloadTransferInfo.length() > 0
     }
 
-    public boolean hasPayload() {
-        return (mPayload != null && mPayload.payloadSize != 0);
-    }
+    class Payload {
+        /**
+         * **NOTE: Do not close the InputStream directly call Payload.close() instead, this is because of this [bug](https://issuetracker.google.com/issues/37018094)**
+         */
+        val inputStream: InputStream?
+        private val inputSocket: Socket?
+        val payloadSize: Long
 
-    public boolean hasPayloadTransferInfo() {
-        return (mPayloadTransferInfo.length() > 0);
-    }
+        constructor(payloadSize: Long) : this(null, payloadSize)
 
-    public JSONObject getPayloadTransferInfo() {
-        return mPayloadTransferInfo;
-    }
-
-    public void setPayloadTransferInfo(JSONObject payloadTransferInfo) {
-        mPayloadTransferInfo = payloadTransferInfo;
-    }
-
-    public static class Payload {
-        private InputStream inputStream;
-        private Socket inputSocket;
-        private long payloadSize;
-
-        public Payload(long payloadSize) {
-            this((InputStream)null, payloadSize);
-        }
-
-        public Payload(byte[] data) {
-            this(new ByteArrayInputStream(data), data.length);
-        }
+        constructor(data: ByteArray) : this(ByteArrayInputStream(data), data.size.toLong())
 
         /**
-         * <b>NOTE: Do not use this to set an SSLSockets InputStream as the payload, use Payload(Socket, long) instead because of this <a href="https://issuetracker.google.com/issues/37018094">bug</a></b>
+         * **NOTE: Do not use this to set an SSLSockets InputStream as the payload, use Payload(Socket, long) instead because of this [bug](https://issuetracker.google.com/issues/37018094)**
          */
-        public Payload(InputStream inputStream, long payloadSize) {
-            this.inputSocket = null;
-            this.inputStream = inputStream;
-            this.payloadSize = payloadSize;
+        constructor(inputStream: InputStream?, payloadSize: Long) {
+            this.inputSocket = null
+            this.inputStream = inputStream
+            this.payloadSize = payloadSize
         }
 
-        public Payload(Socket inputSocket, long payloadSize) throws IOException {
-            this.inputSocket = inputSocket;
-            this.inputStream = inputSocket.getInputStream();
-            this.payloadSize = payloadSize;
+        constructor(inputSocket: Socket, payloadSize: Long) {
+            this.inputSocket = inputSocket
+            this.inputStream = inputSocket.getInputStream()
+            this.payloadSize = payloadSize
         }
 
-        /**
-         * <b>NOTE: Do not close the InputStream directly call Payload.close() instead, this is because of this <a href="https://issuetracker.google.com/issues/37018094">bug</a></b>
-         */
-        public InputStream getInputStream() { return inputStream; }
-        long getPayloadSize() { return payloadSize; }
-
-        public void close() {
-            //TODO: If socket only close socket if that also closes the streams that is
+        fun close() {
+            // TODO: If socket only close socket if that also closes the streams that is
             try {
-                IOUtils.close(inputStream);
-            } catch(IOException ignored) {}
+                inputStream?.close()
+            } catch (ignored: IOException) {
+            }
 
             try {
-                if (inputSocket != null) {
-                    inputSocket.close();
-                }
-            } catch (IOException ignored) {}
+                inputSocket?.close()
+            } catch (ignored: IOException) {
+            }
+        }
+    }
+
+    companion object {
+        const val PACKET_TYPE_NOTIFICATION: String = "kdeconnect.notification"
+        const val PACKET_TYPE_NOTIFICATION_ACTION: String = "kdeconnect.notification.action"
+        const val PACKET_TYPE_NOTIFICATION_REPLY: String = "kdeconnect.notification.reply"
+        const val PACKET_TYPE_IDENTITY: String = "kdeconnect.identity"
+        const val PACKET_TYPE_PAIR: String = "kdeconnect.pair"
+
+        @JvmStatic
+        @Throws(JSONException::class)
+        fun unserialize(s: String): NetworkPacket {
+            val jo = JSONObject(s)
+            val type = jo.getString("type")
+            val mBody = jo.getJSONObject("body")
+
+            val hasPayload = jo.has("payloadSize")
+            val payloadTransferInfo = if (hasPayload) jo.getJSONObject("payloadTransferInfo") else JSONObject()
+            val payload = if (hasPayload) Payload(jo.getLong("payloadSize")) else null
+            return NetworkPacket(type, mBody, payload, payloadTransferInfo)
         }
     }
 }

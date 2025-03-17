@@ -17,6 +17,7 @@ import android.util.Log;
 
 import com.cato.kdeconnect.BackgroundService;
 import com.cato.kdeconnect.Device;
+import com.cato.kdeconnect.KdeConnect;
 import com.cato.kdeconnect.R;
 
 import java.util.ArrayList;
@@ -28,7 +29,7 @@ public class ShareChooserTargetService extends ChooserTargetService {
     public List<ChooserTarget> onGetChooserTargets(ComponentName targetActivityName, IntentFilter matchedFilter) {
         Log.d("DirectShare", "invoked");
         final List<ChooserTarget> targets = new ArrayList<>();
-        for (Device d : BackgroundService.getInstance().getDevices().values()) {
+        for (Device d : KdeConnect.getInstance().getDevices().values()) {
             if (d.isReachable() && d.isPaired()) {
                 Log.d("DirectShare", d.getName());
                 final String targetName = d.getName();

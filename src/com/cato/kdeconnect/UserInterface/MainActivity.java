@@ -7,9 +7,12 @@
 package com.cato.kdeconnect.UserInterface;
 
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.media.AudioManager;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -19,9 +22,12 @@ import android.view.ViewGroup;
 import android.content.Context;
 import android.widget.AdapterView;
 
+import androidx.core.content.ContextCompat;
+
 import com.cato.kdeconnect.BackgroundService;
 import com.cato.kdeconnect.Device;
 import com.cato.kdeconnect.Helpers.DeviceHelper;
+import com.cato.kdeconnect.KdeConnect;
 import com.cato.kdeconnect.LiveCardService;
 import com.cato.kdeconnect.NetworkPacket;
 import com.cato.kdeconnect.Plugins.FindMyPhonePlugin.FindMyPhonePlugin;
@@ -56,7 +62,6 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.d("DebugCato", "onCreate");
-        startService(new Intent(this, LiveCardService.class));
         mCards = new ArrayList<CardBuilder>();
         mDevices = new ArrayList<Device>();
         mCards.add(new CardBuilder(this, CardBuilder.Layout.MENU)
@@ -75,18 +80,46 @@ public class MainActivity extends Activity {
         super.onStart();
         Log.d("DebugCato", "onStart");
         mCardScrollView.activate();
-        BackgroundService.RunCommand(this, service -> {
-            service.onNetworkChange();
-            service.addDeviceListChangedCallback("MainActivity", this::updateDeviceList);
-        });
-        updateDeviceList();
+        KdeConnect.Companion.Start(this); //TODO: why is the app instance null until device turned off and on, or app restarted multiple times?
+        // Bind to the service
+        Intent intent = new Intent(this, KdeConnect.class);
+        bindService(intent, connection, Context.BIND_AUTO_CREATE);
     }
+
+    private KdeConnect kdeConnect;
+    private boolean isBound = false;
+    private final ServiceConnection connection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            // Cast the IBinder and get the service instance
+            KdeConnect.LocalBinder binder = (KdeConnect.LocalBinder) service;
+            kdeConnect = binder.getService();
+            isBound = true;
+
+            BackgroundService.Companion.Start(MainActivity.this);
+            LiveCardService.start(MainActivity.this);
+
+            // Now that the service is bound, run the code that requires the service
+            kdeConnect.addDeviceListChangedCallback("MainActivity", MainActivity.this::updateDeviceList);
+            updateDeviceList();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName className) {
+            isBound = false;
+            kdeConnect = null;
+        }
+    };
 
     @Override
     protected void onStop() {
         Log.d("DebugCato", "onStop");
         mCardScrollView.deactivate();
-        BackgroundService.RunCommand(this, service -> service.removeDeviceListChangedCallback("MainActivity"));
+        if (isBound) {
+            KdeConnect.getInstance().removeDeviceListChangedCallback("MainActivity");
+            unbindService(connection);
+            isBound = false;
+        }
         super.onStop();
     }
 
@@ -102,37 +135,35 @@ public class MainActivity extends Activity {
         mCards.add(new CardBuilder(this, CardBuilder.Layout.MENU)
                 .setText("Refresh")
                 .setFootnote("Visible as " + DeviceHelper.getDeviceName(this)));
-        BackgroundService.RunCommand(this, service -> {
-            Collection<Device> devices = service.getDevices().values();
-            for (Device device : devices) {
-                if (device.isReachable() && !device.isPaired()) {
-                    mDevices.add(device);
-                    CardBuilder card = new CardBuilder(this, CardBuilder.Layout.MENU)
-                            .setText(device.getName())
-                            .setIcon(device.getIcon());
-                    if (device.isPairRequestedByPeer()) {
-                        card.setFootnote("Pair requested \uD83D\uDD11 " + device.getVerificationKey());
-                    } else if (device.isPairRequested()) {
-                        card.setFootnote("Pairing request sent \uD83D\uDD11 " + device.getVerificationKey());
-                    } else {
-                        card.setFootnote("Tap to pair");
-                    }
-                    mCards.add(card);
-                    Log.d("DebugCato", "Adding device " + device.getName());
+        Collection<Device> devices = KdeConnect.getInstance().getDevices().values();
+        for (Device device : devices) {
+            if (device.isReachable() && !device.isPaired()) {
+                mDevices.add(device);
+                CardBuilder card = new CardBuilder(this, CardBuilder.Layout.MENU)
+                        .setText(device.getName())
+                        .setIcon(device.getIcon());
+                if (device.isPairRequestedByPeer()) {
+                    card.setFootnote("Pair requested \uD83D\uDD11 " + device.getVerificationKey());
+                } else if (device.isPairRequested()) {
+                    card.setFootnote("Pairing request sent \uD83D\uDD11 " + device.getVerificationKey());
+                } else {
+                    card.setFootnote("Tap to pair");
                 }
-                if (device.isPaired()) {
-                    mDevices.add(device);
-                    CardBuilder card = new CardBuilder(this, CardBuilder.Layout.MENU)
-                            .setText(device.getName())
-                            .setIcon(device.getIcon());
-                    card.setFootnote((device.isReachable() ? "Connected | " : "Not connected | " ) + "Tap for options");
-                    mCards.add(card);
-                    Log.d("DebugCato", "Adding device " + device.getName());
-                }
+                mCards.add(card);
+                Log.d("DebugCato", "Adding device " + device.getName());
             }
-            runOnUiThread(() -> {
-                mAdapter.notifyDataSetChanged();
-            });
+            if (device.isPaired()) {
+                mDevices.add(device);
+                CardBuilder card = new CardBuilder(this, CardBuilder.Layout.MENU)
+                        .setText(device.getName())
+                        .setIcon(device.getIcon());
+                card.setFootnote((device.isReachable() ? "Connected | " : "Not connected | " ) + "Tap for options");
+                mCards.add(card);
+                Log.d("DebugCato", "Adding device " + device.getName());
+            }
+        }
+        runOnUiThread(() -> {
+            mAdapter.notifyDataSetChanged();
             if (mCards.size() - 1 >= position) {
                 mCardScrollView.setSelection(position);
             } else {
@@ -184,6 +215,7 @@ public class MainActivity extends Activity {
                 AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
                 am.playSoundEffect(Sounds.TAP);
                 if (position == 0) {
+                    BackgroundService.ForceRefreshConnections(MainActivity.this);
                     updateDeviceList();
                 } else {
                     Device device = mDevices.get(position - 1);
@@ -206,13 +238,9 @@ public class MainActivity extends Activity {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menu_device, menu);
-        if (!selectedDevice.isPluginEnabled("SharePlugin") || !selectedDevice.isReachable()) {
+        if (!selectedDevice.isReachable()) {
             menu.removeItem(R.id.share);
-        }
-        if (!selectedDevice.isPluginEnabled("FindRemoteDevicePlugin") || !selectedDevice.isReachable()) {
             menu.removeItem(R.id.ring);
-        }
-        if (!selectedDevice.isPluginEnabled("MousePadPlugin") || !selectedDevice.isReachable()) {
             menu.removeItem(R.id.mousepad);
         }
         return true;

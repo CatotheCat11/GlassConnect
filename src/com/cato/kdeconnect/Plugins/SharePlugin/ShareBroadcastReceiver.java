@@ -12,6 +12,7 @@ import android.content.Intent;
 import android.util.Log;
 
 import com.cato.kdeconnect.BackgroundService;
+import com.cato.kdeconnect.KdeConnect;
 
 public class ShareBroadcastReceiver extends BroadcastReceiver {
     @Override
@@ -34,7 +35,7 @@ public class ShareBroadcastReceiver extends BroadcastReceiver {
 
         long jobId = intent.getLongExtra(SharePlugin.CANCEL_SHARE_BACKGROUND_JOB_ID_EXTRA, -1);
         String deviceId = intent.getStringExtra(SharePlugin.CANCEL_SHARE_DEVICE_ID_EXTRA);
-
-        BackgroundService.RunWithPlugin(context, deviceId, SharePlugin.class, plugin -> plugin.cancelJob(jobId));
+        SharePlugin plugin = KdeConnect.getInstance().getDevicePlugin(deviceId, SharePlugin.class);
+        plugin.cancelJob(jobId);
     }
 }

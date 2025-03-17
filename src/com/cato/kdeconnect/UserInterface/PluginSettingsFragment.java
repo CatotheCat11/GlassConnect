@@ -15,6 +15,7 @@ import androidx.preference.PreferenceManager;
 
 import com.cato.kdeconnect.BackgroundService;
 import com.cato.kdeconnect.Device;
+import com.cato.kdeconnect.KdeConnect;
 import com.cato.kdeconnect.Plugins.Plugin;
 import com.cato.kdeconnect.Plugins.PluginFactory;
 import com.cato.kdeconnect.R;
@@ -86,7 +87,7 @@ public class PluginSettingsFragment extends PreferenceFragmentCompat {
     }
 
     private Device getDeviceOrThrow(String deviceId) {
-        Device device = BackgroundService.getInstance().getDevice(deviceId);
+        Device device = KdeConnect.getInstance().getDevice(deviceId);
 
         if (device == null) {
             throw new RuntimeException("PluginSettingsFragment.onCreatePreferences() - No device with id " + getDeviceId());

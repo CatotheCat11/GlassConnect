@@ -15,10 +15,13 @@ import org.atteo.classindex.IndexAnnotated;
 import com.cato.kdeconnect.Device;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import static org.apache.commons.collections4.SetUtils.emptyIfNull;
 import static org.apache.commons.collections4.SetUtils.unmodifiableSet;
@@ -166,6 +169,15 @@ public class PluginFactory {
             plugins.add(pluginId);
         }
         return plugins;
+    }
+
+    public static List<String> sortPluginList(List<String> plugins) {
+        return plugins.stream()
+                .sorted(Comparator.comparing(plugin -> {
+                    PluginFactory.PluginInfo info = pluginInfo.get(plugin);
+                    return info != null ? info.getDisplayName() : "";
+                }))
+                .collect(Collectors.toList());
     }
 
 }

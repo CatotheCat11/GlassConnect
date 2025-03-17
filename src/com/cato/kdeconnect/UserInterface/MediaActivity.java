@@ -16,6 +16,7 @@ import android.view.MenuItem;
 
 import com.cato.kdeconnect.BackgroundService;
 import com.cato.kdeconnect.Device;
+import com.cato.kdeconnect.KdeConnect;
 import com.cato.kdeconnect.LiveCardService;
 import com.cato.kdeconnect.NetworkPacket;
 import com.cato.kdeconnect.R;
@@ -89,13 +90,11 @@ public class MediaActivity extends Activity {
         NetworkPacket np = new NetworkPacket(PACKET_TYPE_MPRIS_REQUEST);
         np.set("player", getIntent().getStringExtra("player"));
         np.set(method, value);
-        BackgroundService.RunCommand(getApplicationContext(), service -> {
-            Collection<Device> devices = service.getDevices().values();
-            for (Device device : devices) { //TODO: handle device not found
-                if (device.getDeviceId().equals(getIntent().getStringExtra("device"))) {
-                    device.sendPacket(np);
-                }
+        Collection<Device> devices = KdeConnect.getInstance().getDevices().values();
+        for (Device device : devices) { //TODO: handle device not found
+            if (device.getDeviceId().equals(getIntent().getStringExtra("device"))) {
+                device.sendPacket(np);
             }
-        });
+        }
     }
 }

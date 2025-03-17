@@ -2,51 +2,51 @@
  * SPDX-FileCopyrightText: 2015 Vineet Garg <grg.vineet@gmail.com>
  *
  * SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
-*/
+ */
 
 package com.cato.kdeconnect.Helpers.SecurityHelpers;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
-import android.os.Build;
 import android.preference.PreferenceManager;
 import android.util.Base64;
 import android.util.Log;
 
-import org.apache.commons.lang3.ArrayUtils;
+import org.bouncycastle.asn1.x500.RDN;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x500.X500NameBuilder;
+import org.bouncycastle.asn1.x500.style.BCStyle;
+import org.bouncycastle.asn1.x500.style.IETFUtils;
+import org.bouncycastle.cert.X509v3CertificateBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.util.Arrays;
 import com.cato.kdeconnect.Helpers.DeviceHelper;
 import com.cato.kdeconnect.Helpers.RandomHelper;
-import org.spongycastle.asn1.x500.RDN;
-import org.spongycastle.asn1.x500.X500Name;
-import org.spongycastle.asn1.x500.X500NameBuilder;
-import org.spongycastle.asn1.x500.style.BCStyle;
-import org.spongycastle.asn1.x500.style.IETFUtils;
-import org.spongycastle.cert.X509CertificateHolder;
-import org.spongycastle.cert.X509v3CertificateBuilder;
-import org.spongycastle.cert.jcajce.JcaX509CertificateConverter;
-import org.spongycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.spongycastle.jce.provider.BouncyCastleProvider;
-import org.spongycastle.operator.ContentSigner;
-import org.spongycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.spongycastle.util.Arrays;
+import com.cato.kdeconnect.KdeConnect;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.net.SocketException;
 import java.security.KeyStore;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.Formatter;
 import java.util.Locale;
@@ -62,9 +62,25 @@ import javax.security.auth.x500.X500Principal;
 
 public class SslHelper {
 
-    public static X509Certificate certificate; //my device's certificate
+    public static Certificate certificate; //my device's certificate
+    private static final CertificateFactory factory;
+    static {
+        try {
+            factory = CertificateFactory.getInstance("X.509");
+        } catch (CertificateException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-    public static final BouncyCastleProvider BC = new BouncyCastleProvider();
+    @SuppressLint({"CustomX509TrustManager", "TrustAllX509TrustManager"})
+    private final static TrustManager[] trustAllCerts = new TrustManager[] {
+            new X509TrustManager() {
+                private final X509Certificate[] issuers = new X509Certificate[0];
+                @Override public X509Certificate[] getAcceptedIssuers() { return issuers; }
+                @Override public void checkClientTrusted(X509Certificate[] certs, String authType) { }
+                @Override public void checkServerTrusted(X509Certificate[] certs, String authType) { }
+            }
+    };
 
     public static void initialiseCertificate(Context context) {
         PrivateKey privateKey;
@@ -78,22 +94,32 @@ public class SslHelper {
             return;
         }
 
+        Log.i("SslHelper", "Key algorithm: " + publicKey.getAlgorithm());
+
         String deviceId = DeviceHelper.getDeviceId(context);
 
         boolean needsToGenerateCertificate = false;
         SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(context);
+
         if (settings.contains("certificate")) {
+            final Date currDate = new Date();
             try {
                 SharedPreferences globalSettings = PreferenceManager.getDefaultSharedPreferences(context);
                 byte[] certificateBytes = Base64.decode(globalSettings.getString("certificate", ""), 0);
-                X509CertificateHolder certificateHolder = new X509CertificateHolder(certificateBytes);
-                X509Certificate cert = new JcaX509CertificateConverter().setProvider(BC).getCertificate(certificateHolder);
+                X509Certificate cert = (X509Certificate) parseCertificate(certificateBytes);
 
                 String certDeviceId = getCommonNameFromCertificate(cert);
                 if (!certDeviceId.equals(deviceId)) {
                     Log.e("KDE/SslHelper", "The certificate stored is from a different device id! (found: " + certDeviceId + " expected:" + deviceId + ")");
                     needsToGenerateCertificate = true;
-                } else {
+                }
+                else if(cert.getNotAfter().getTime() < currDate.getTime()) {
+                    Log.e("KDE/SslHelper", "The certificate expired: "+cert.getNotAfter());
+                    needsToGenerateCertificate = true;
+                } else if(cert.getNotBefore().getTime() > currDate.getTime()) {
+                    Log.e("KDE/SslHelper", "The certificate is not effective yet: "+cert.getNotBefore());
+                    needsToGenerateCertificate = true;
+                }else {
                     certificate = cert;
                 }
             } catch (Exception e) {
@@ -106,6 +132,7 @@ public class SslHelper {
         }
 
         if (needsToGenerateCertificate) {
+            KdeConnect.getInstance().removeRememberedDevices();
             Log.i("KDE/SslHelper", "Generating a certificate");
             try {
                 //Fix for https://issuetracker.google.com/issues/37095309
@@ -116,10 +143,9 @@ public class SslHelper {
                 nameBuilder.addRDN(BCStyle.CN, deviceId);
                 nameBuilder.addRDN(BCStyle.OU, "KDE Connect");
                 nameBuilder.addRDN(BCStyle.O, "KDE");
-                final LocalDate localDate = LocalDate.now().minusYears(1);
-                final Instant notBefore = localDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
-                final Instant notAfter = localDate.plusYears(10).atStartOfDay(ZoneId.systemDefault())
-                        .toInstant();
+                final LocalDate localDate = LocalDate.now();
+                final Instant notBefore = localDate.minusYears(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+                final Instant notAfter = localDate.plusYears(10).atStartOfDay(ZoneId.systemDefault()).toInstant();
                 X509v3CertificateBuilder certificateBuilder = new JcaX509v3CertificateBuilder(
                         nameBuilder.build(),
                         BigInteger.ONE,
@@ -128,11 +154,14 @@ public class SslHelper {
                         nameBuilder.build(),
                         publicKey
                 );
-                ContentSigner contentSigner = new JcaContentSignerBuilder("SHA256WithRSAEncryption").setProvider(BC).build(privateKey);
-                certificate = new JcaX509CertificateConverter().setProvider(BC).getCertificate(certificateBuilder.build(contentSigner));
+                String keyAlgorithm = privateKey.getAlgorithm();
+                String signatureAlgorithm = "RSA".equals(keyAlgorithm)? "SHA512withRSA" : "SHA512withECDSA";
+                ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithm).build(privateKey);
+                byte[] certificateBytes = certificateBuilder.build(contentSigner).getEncoded();
+                certificate = parseCertificate(certificateBytes);
 
                 SharedPreferences.Editor edit = settings.edit();
-                edit.putString("certificate", Base64.encodeToString(certificate.getEncoded(), 0));
+                edit.putString("certificate", Base64.encodeToString(certificateBytes, 0));
                 edit.apply();
 
                 setLocale(initialLocale, context);
@@ -156,27 +185,29 @@ public class SslHelper {
         return !cert.isEmpty();
     }
 
-    private static SSLContext getSslContext(Context context, String deviceId, boolean isDeviceTrusted) {
+    /**
+     * Returns the stored certificate for a trusted device
+     **/
+    public static Certificate getDeviceCertificate(Context context, String deviceId) throws CertificateException {
+        SharedPreferences devicePreferences = context.getSharedPreferences(deviceId, Context.MODE_PRIVATE);
+        byte[] certificateBytes = Base64.decode(devicePreferences.getString("certificate", ""), 0);
+        return parseCertificate(certificateBytes);
+    }
+
+    private static SSLContext getSslContextForDevice(Context context, String deviceId, boolean isDeviceTrusted) {
         //TODO: Cache
         try {
             // Get device private key
             PrivateKey privateKey = RsaHelper.getPrivateKey(context);
 
-            // Get remote device certificate if trusted
-            X509Certificate remoteDeviceCertificate = null;
-            if (isDeviceTrusted) {
-                SharedPreferences devicePreferences = context.getSharedPreferences(deviceId, Context.MODE_PRIVATE);
-                byte[] certificateBytes = Base64.decode(devicePreferences.getString("certificate", ""), 0);
-                X509CertificateHolder certificateHolder = new X509CertificateHolder(certificateBytes);
-                remoteDeviceCertificate = new JcaX509CertificateConverter().setProvider(BC).getCertificate(certificateHolder);
-            }
-
             // Setup keystore
             KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
             keyStore.load(null, null);
             keyStore.setKeyEntry("key", privateKey, "".toCharArray(), new Certificate[]{certificate});
-            // Set certificate if device trusted
-            if (remoteDeviceCertificate != null) {
+
+            // Add device certificate if device trusted
+            if (isDeviceTrusted) {
+                Certificate remoteDeviceCertificate = getDeviceCertificate(context, deviceId);
                 keyStore.setCertificateEntry(deviceId, remoteDeviceCertificate);
             }
 
@@ -190,23 +221,7 @@ public class SslHelper {
             trustManagerFactory.init(keyStore);
 
             // Setup custom trust manager if device not trusted
-            TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {
-                public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-                    return new X509Certificate[0];
-                }
-
-                @Override
-                public void checkClientTrusted(X509Certificate[] certs, String authType) {
-                }
-
-                @Override
-                public void checkServerTrusted(X509Certificate[] certs, String authType) {
-                }
-
-            }
-            };
-
-            SSLContext tlsContext = SSLContext.getInstance("TLSv1"); //Newer TLS versions are only supported on API 16+
+            SSLContext tlsContext = SSLContext.getInstance("TLSv1.2"); // Use TLS up to 1.2, since 1.3 seems to cause issues in some (older?) devices
             if (isDeviceTrusted) {
                 tlsContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), RandomHelper.secureRandom);
             } else {
@@ -221,20 +236,7 @@ public class SslHelper {
     }
 
     private static void configureSslSocket(SSLSocket socket, boolean isDeviceTrusted, boolean isClient) throws SocketException {
-
-        // These cipher suites are most common of them that are accepted by kde and android during handshake
-        ArrayList<String> supportedCiphers = new ArrayList<>();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            supportedCiphers.add("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");  // API 20+
-            supportedCiphers.add("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256");  // API 20+
-            supportedCiphers.add("TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384");    // API 20+
-            supportedCiphers.add("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256");    // API 20+
-        }
-        supportedCiphers.add("TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA");       // API 11+
-        socket.setEnabledCipherSuites(supportedCiphers.toArray(ArrayUtils.EMPTY_STRING_ARRAY));
-
         socket.setSoTimeout(10000);
-
         if (isClient) {
             socket.setUseClientMode(true);
         } else {
@@ -249,30 +251,28 @@ public class SslHelper {
     }
 
     public static SSLSocket convertToSslSocket(Context context, Socket socket, String deviceId, boolean isDeviceTrusted, boolean clientMode) throws IOException {
-        SSLSocketFactory sslsocketFactory = SslHelper.getSslContext(context, deviceId, isDeviceTrusted).getSocketFactory();
+        SSLSocketFactory sslsocketFactory = SslHelper.getSslContextForDevice(context, deviceId, isDeviceTrusted).getSocketFactory();
         SSLSocket sslsocket = (SSLSocket) sslsocketFactory.createSocket(socket, socket.getInetAddress().getHostAddress(), socket.getPort(), true);
         SslHelper.configureSslSocket(sslsocket, isDeviceTrusted, clientMode);
         return sslsocket;
     }
 
     public static String getCertificateHash(Certificate certificate) {
+        byte[] hash;
         try {
-            byte[] hash = MessageDigest.getInstance("SHA-256").digest(certificate.getEncoded());
-            Formatter formatter = new Formatter();
-            int i;
-            for (i = 0; i < hash.length; i++) {
-                formatter.format("%02x:", hash[i]);
-            }
-            formatter.format("%02x", hash[i]);
-            return formatter.toString();
-        } catch (Exception e) {
-            return null;
+            hash = MessageDigest.getInstance("SHA-256").digest(certificate.getEncoded());
+        } catch (NoSuchAlgorithmException | CertificateEncodingException e) {
+            throw new RuntimeException(e);
         }
+        Formatter formatter = new Formatter();
+        for (byte b : hash) {
+            formatter.format("%02x:", b);
+        }
+        return formatter.toString();
     }
 
-    public static Certificate parseCertificate(byte[] certificateBytes) throws IOException, CertificateException {
-        X509CertificateHolder certificateHolder = new X509CertificateHolder(certificateBytes);
-        return new JcaX509CertificateConverter().setProvider(BC).getCertificate(certificateHolder);
+    public static Certificate parseCertificate(byte[] certificateBytes) throws CertificateException {
+        return factory.generateCertificate(new ByteArrayInputStream(certificateBytes));
     }
 
     private static String getCommonNameFromCertificate(X509Certificate cert) {
@@ -282,31 +282,4 @@ public class SslHelper {
         return IETFUtils.valueToString(rdn.getFirst().getValue());
     }
 
-    public static String getVerificationKey(X509Certificate certificateA, Certificate certificateB) {
-        try {
-            byte[] a = certificateA.getPublicKey().getEncoded();
-            byte[] b = certificateB.getPublicKey().getEncoded();
-
-            if (Arrays.compareUnsigned(a, b) < 0) {
-                // Swap them so on both devices they are in the same order
-                byte[] aux = a;
-                a = b;
-                b = aux;
-            }
-
-            byte[] concat = new byte[a.length + b.length];
-            System.arraycopy(a, 0, concat, 0, a.length);
-            System.arraycopy(b, 0, concat, a.length, b.length);
-
-            byte[] hash = MessageDigest.getInstance("SHA-256").digest(concat);
-            Formatter formatter = new Formatter();
-            for (int i = 0; i < hash.length; i++) {
-                formatter.format("%02x", hash[i]);
-            }
-            return formatter.toString();
-        } catch(Exception e) {
-            e.printStackTrace();
-            return "error";
-        }
-    }
 }
