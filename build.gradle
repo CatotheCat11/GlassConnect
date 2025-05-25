@@ -6,7 +6,7 @@ import com.github.jk1.license.render.TextReportRenderer
 buildscript {
     ext.kotlin_version = '1.7.20'
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.9.0'
+        classpath 'com.android.tools.build:gradle:8.10.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
