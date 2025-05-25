@@ -34,6 +34,7 @@ import java.io.Reader
 import java.security.cert.CertificateException
 import java.util.UUID
 import kotlin.text.Charsets.UTF_8
+import androidx.core.content.edit
 
 class BluetoothLinkProvider(private val context: Context) : BaseLinkProvider() {
     private val visibleDevices: MutableMap<String, BluetoothLink> = HashMap()
@@ -69,6 +70,9 @@ class BluetoothLinkProvider(private val context: Context) : BaseLinkProvider() {
 
     override fun onStart() {
         val preferences = PreferenceManager.getDefaultSharedPreferences(context)
+        /*if (!preferences.getBoolean(SettingsFragment.KEY_BLUETOOTH_ENABLED, false)) {
+            return
+        }*/
         if (bluetoothAdapter == null || bluetoothAdapter.isEnabled == false) {
             return
         }
@@ -134,9 +138,9 @@ class BluetoothLinkProvider(private val context: Context) : BaseLinkProvider() {
             } catch (e: SecurityException) {
                 Log.e("KDEConnect", "Security Exception for CONNECT", e)
 
-                //val prefenceEditor = PreferenceManager.getDefaultSharedPreferences(context).edit()
-                //prefenceEditor.putBoolean(SettingsFragment.KEY_BLUETOOTH_ENABLED, false)
-                //prefenceEditor.apply()
+                /*PreferenceManager.getDefaultSharedPreferences(context).edit {
+                    putBoolean(SettingsFragment.KEY_BLUETOOTH_ENABLED, false)
+                }*/
 
                 return
             }
