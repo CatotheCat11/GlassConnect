@@ -130,6 +130,11 @@
             android:exported="true"
             android:theme="@style/KdeConnectTheme"/>
         <activity
+            android:name=".Plugins.RunCommandPlugin.RunCommandActivity"
+            android:label="Run Command"
+            android:exported="true"
+            android:theme="@style/KdeConnectTheme"/>
+        <activity
             android:name="com.cato.kdeconnect.UserInterface.PluginSettingsActivity"
             android:label="@string/device_menu_plugins"
             android:exported="false"

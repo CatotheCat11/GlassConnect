@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
+        android:id="@+id/run_command"
+        android:title="Run command"
+        android:icon="@drawable/ic_command"/>
+    <item
         android:id="@+id/share"
         android:title="Send media"
         android:icon="@drawable/ic_send"/>

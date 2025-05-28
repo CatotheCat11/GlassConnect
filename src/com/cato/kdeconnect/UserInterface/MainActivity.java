@@ -227,6 +227,7 @@ public class MainActivity extends Activity {
                         mAdapter.notifyDataSetChanged();
                     } else if (device.isPaired()) {
                         selectedDevice = device;
+                        invalidateOptionsMenu();
                         openOptionsMenu();
                     }
                 }
@@ -235,13 +236,28 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
+    public boolean onPrepareOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menu_device, menu);
         if (!selectedDevice.isReachable()) {
+            menu.removeItem(R.id.run_command);
             menu.removeItem(R.id.share);
             menu.removeItem(R.id.ring);
             menu.removeItem(R.id.mousepad);
+        } else {
+            if (!selectedDevice.getSupportedPlugins().contains("RunCommandPlugin")) {
+                menu.removeItem(R.id.run_command);
+            }
+            if (!selectedDevice.getSupportedPlugins().contains("SharePlugin")) {
+                menu.removeItem(R.id.share);
+            }
+            if (!selectedDevice.getSupportedPlugins().contains("FindMyPhonePlugin")) {
+                menu.removeItem(R.id.ring);
+            }
+            if (!selectedDevice.getSupportedPlugins().contains("MousePadPlugin")) {
+                menu.removeItem(R.id.mousepad);
+            }
+            Log.d("DebugCato", "Selected device plugins: " + selectedDevice.getSupportedPlugins());
         }
         return true;
     }
@@ -250,7 +266,9 @@ public class MainActivity extends Activity {
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle item selection.
         Integer selection = item.getItemId();
-        if (selection == R.id.share && selectedDevice.isReachable()) {
+        if (selection == R.id.run_command && selectedDevice.isReachable()) {
+            selectedDevice.getPlugin("RunCommandPlugin").startMainActivity(this);
+        } else if (selection == R.id.share && selectedDevice.isReachable()) {
             selectedDevice.getPlugin("SharePlugin").startMainActivity(this);
         } else if (selection == R.id.ring && selectedDevice.isReachable()) {
             selectedDevice.sendPacket(new NetworkPacket(FindMyPhonePlugin.PACKET_TYPE_FINDMYPHONE_REQUEST));
