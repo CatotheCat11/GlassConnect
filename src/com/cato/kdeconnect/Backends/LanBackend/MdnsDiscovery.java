@@ -42,7 +42,7 @@ public class MdnsDiscovery {
         this.lanLinkProvider = lanLinkProvider;
         this.mNsdManager = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
         this.mNsdResolveQueue = new NsdResolveQueue(this.mNsdManager);
-        WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+        WifiManager wifiManager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         multicastLock = wifiManager.createMulticastLock("kdeConnectMdnsMulticastLock");
     }
 
