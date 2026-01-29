@@ -134,7 +134,8 @@ public class MainActivity extends Activity {
         mDevices.clear();
         mCards.add(new CardBuilder(this, CardBuilder.Layout.MENU)
                 .setText("Refresh")
-                .setFootnote("Visible as " + DeviceHelper.getDeviceName(this)));
+                .setFootnote("Visible as " + DeviceHelper.getDeviceName(this))
+                .setIcon(R.drawable.ic_refresh_64dp));
         Collection<Device> devices = KdeConnect.getInstance().getDevices().values();
         for (Device device : devices) {
             if (device.isReachable() && !device.isPaired()) {
@@ -227,7 +228,6 @@ public class MainActivity extends Activity {
                         mAdapter.notifyDataSetChanged();
                     } else if (device.isPaired()) {
                         selectedDevice = device;
-                        invalidateOptionsMenu();
                         openOptionsMenu();
                     }
                 }
@@ -236,28 +236,41 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    public boolean onPrepareOptionsMenu(Menu menu) {
+    public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menu_device, menu);
-        if (!selectedDevice.isReachable()) {
-            menu.removeItem(R.id.run_command);
-            menu.removeItem(R.id.share);
-            menu.removeItem(R.id.ring);
-            menu.removeItem(R.id.mousepad);
-        } else {
+        return true;
+    }
+
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        if (selectedDevice == null) {
+            return false;
+        }
+        menu.findItem(R.id.run_command).setVisible(true);
+        menu.findItem(R.id.share).setVisible(true);
+        menu.findItem(R.id.ring).setVisible(true);
+        menu.findItem(R.id.mousepad).setVisible(true);
+        if (selectedDevice.isReachable()) { //Device is reachable, hide options that are not supported by the device
             if (!selectedDevice.getSupportedPlugins().contains("RunCommandPlugin")) {
-                menu.removeItem(R.id.run_command);
+                menu.findItem(R.id.run_command).setVisible(false);
             }
             if (!selectedDevice.getSupportedPlugins().contains("SharePlugin")) {
-                menu.removeItem(R.id.share);
+                menu.findItem(R.id.share).setVisible(false);
             }
             if (!selectedDevice.getSupportedPlugins().contains("FindMyPhonePlugin")) {
-                menu.removeItem(R.id.ring);
+                menu.findItem(R.id.ring).setVisible(false);
             }
             if (!selectedDevice.getSupportedPlugins().contains("MousePadPlugin")) {
-                menu.removeItem(R.id.mousepad);
+                menu.findItem(R.id.mousepad).setVisible(false);
             }
-            Log.d("DebugCato", "Selected device plugins: " + selectedDevice.getSupportedPlugins());
+            //Log.d("DebugCato", "Selected device plugins: " + selectedDevice.getSupportedPlugins());
+        } else { //Device isn't reachable, hide all options
+            menu.findItem(R.id.run_command).setVisible(false);
+            menu.findItem(R.id.share).setVisible(false);
+            menu.findItem(R.id.ring).setVisible(false);
+            menu.findItem(R.id.mousepad).setVisible(false);
         }
         return true;
     }
