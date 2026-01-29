@@ -26,7 +26,6 @@ import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.AdapterView;
 
-import com.cato.kdeconnect.BackgroundService;
 import com.cato.kdeconnect.Device;
 import com.cato.kdeconnect.KdeConnect;
 import com.cato.kdeconnect.LiveCardService;
@@ -69,7 +68,8 @@ public class NotificationActivity extends Activity {
         setContentView(mCardScrollView);
         setupClickListener();
 
-        if (getIntent().getIntExtra("lastNoti", -1) != -1) {
+        if (getIntent().getBooleanExtra("slideIn", false)) {
+            Log.i("NotificationActivity", "Sliding in notification activity");
             AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
             am.playSoundEffect(Sounds.SELECTED);
             DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
@@ -88,7 +88,7 @@ public class NotificationActivity extends Activity {
         mCards = new ArrayList<CardBuilder>();
         if (getIntent().hasExtra("notiList")) {
             try {
-                notiList = new JSONArray(getIntent().getStringExtra("notiList"));
+                notiList = LiveCardService.notificationList;
                 for (int i = notiList.length() - 1; i >= 0; i--) { //Reverse order to show latest notification first
                     JSONObject noti = notiList.getJSONObject(i);
                     Log.d("NotificationActivity", "Adding notification: " + noti.toString());

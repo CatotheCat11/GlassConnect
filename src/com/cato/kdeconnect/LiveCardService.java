@@ -33,8 +33,6 @@ import com.cato.kdeconnect.Plugins.MprisPlugin.MprisPlugin;
 import com.cato.kdeconnect.UserInterface.CardNotiActivity;
 import com.cato.kdeconnect.UserInterface.MediaActivity;
 import com.cato.kdeconnect.UserInterface.NotificationActivity;
-import com.google.android.glass.eye.EyeGesture;
-import com.google.android.glass.eye.EyeGestureManager;
 import com.google.android.glass.timeline.LiveCard;
 import com.google.android.glass.widget.CardBuilder;
 
@@ -44,8 +42,6 @@ import okhttp3.OkHttpClient;
 
 public class LiveCardService extends Service {
     public static LiveCardService sInstance;
-
-    public static boolean notiGlanceEnabled = false;
 
     private static final String NOTI_CARD_TAG = "NotificationCard";
     private static final String MEDIA_CARD_TAG = "MediaCard";
@@ -61,10 +57,6 @@ public class LiveCardService extends Service {
             new UpdateMediaCardRunnable();
 
     public static JSONArray notificationList;
-    private EyeGestureManager mEyeGestureManager = null;
-    private EyeGestureManager.Listener mEyeGestureListener;
-    private static Integer lastNoti = -1;
-    private static Boolean newNoti = false;
     private PowerManager mPowerManager;
     private static MprisPlugin.MprisPlayer playerStatus;
     private boolean live = false;
@@ -122,7 +114,6 @@ public class LiveCardService extends Service {
         client = customTrust.getClient();
         mPowerManager = (PowerManager) getSystemService(POWER_SERVICE);
         notificationList = new JSONArray();
-        setupEyeGestures();
     }
 
     @Override
@@ -151,58 +142,8 @@ public class LiveCardService extends Service {
         return START_STICKY;
     }
 
-    private void setupEyeGestures() {
-        notiGlanceEnabled = isNotificationGlanceEnabled(getContentResolver());
-        if (notiGlanceEnabled) {
-            GestureIds mGestureIds = new GestureIds();
-
-            mEyeGestureManager = EyeGestureManager.from(this);
-
-            mEyeGestureListener = new EyeGestureManager.Listener(){
-                public void onDetected(EyeGesture gesture) {
-                    Log.i("EyeGestureListener", "Gesture: " + gesture.getId());
-
-                    int id = gesture.getId();
-                    if (lastNoti == -1 && mEyeGestureManager != null) {
-                        mEyeGestureManager.unregister(EyeGesture.LOOK_AT_SCREEN, mEyeGestureListener);
-                    }
-
-                    if (id == mGestureIds.LOOK_AT_SCREEN_ID && lastNoti != -1) {
-                        Log.d("EyeGesture", "Screen");
-                        Intent notiIntent = new Intent(getApplicationContext(), NotificationActivity.class);
-                        notiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
-                                Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        notiIntent.putExtra("notiList", notificationList.toString());
-                        notiIntent.putExtra("lastNoti", (int) lastNoti);
-                        lastNoti = -1;
-                        if (!mPowerManager.isScreenOn()) {
-                            startActivity(notiIntent);
-                        }
-                        if (mEyeGestureManager != null) {
-                            mEyeGestureManager.unregister(EyeGesture.LOOK_AT_SCREEN, mEyeGestureListener);
-                        }
-                    }
-                }
-            };
-        }
-    }
-    public static void showNoti() {
-        if (lastNoti != -1) {
-            Intent notiIntent = new Intent(sInstance, NotificationActivity.class);
-            notiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
-                    Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            notiIntent.putExtra("notiList", notificationList.toString());
-            notiIntent.putExtra("lastNoti", (int) lastNoti);
-            lastNoti = -1;
-            sInstance.startActivity(notiIntent);
-        }
-    }
-
     @Override
     public void onDestroy() {
-        if (mEyeGestureManager != null) {
-            mEyeGestureManager.unregister(EyeGesture.LOOK_AT_SCREEN, mEyeGestureListener);
-        }
         if (mNotiCard != null && mNotiCard.isPublished()) {
 
             mNotiCard.unpublish();
@@ -239,11 +180,6 @@ public class LiveCardService extends Service {
     // Static method to post the update runnable
     public static void postUpdate(boolean newN) {
         if (sInstance != null) {
-            if (newN) {
-                MediaPlayer mp = MediaPlayer.create(sInstance.getApplicationContext(), R.raw.sound_notification);
-                mp.start();
-                newNoti = true;
-            }
             sInstance.mHandler.post(sInstance.mUpdateNotiCardRunnable);
         } else {
             Log.w(NOTI_CARD_TAG, "Service instance is null; cannot post update.");
@@ -256,13 +192,6 @@ public class LiveCardService extends Service {
 
         public void run(){
             if(!isStopped()){
-                if (!mPowerManager.isScreenOn() && newNoti) {
-                    lastNoti = notificationList.length() - 1;
-                    newNoti = false;
-                    if (mEyeGestureManager != null && notiGlanceEnabled) {
-                        mEyeGestureManager.register(EyeGesture.LOOK_AT_SCREEN, mEyeGestureListener);
-                    }
-                }
                 Log.d(NOTI_CARD_TAG, "Updating LiveCard");
                 Log.d(NOTI_CARD_TAG, "Notification count: " + notificationList.length());
                 if (notificationList.length() == 0) {
@@ -303,7 +232,6 @@ public class LiveCardService extends Service {
                     Intent notiIntent = new Intent(getApplicationContext(), NotificationActivity.class);
                     notiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
                             Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    notiIntent.putExtra("notiList", notificationList.toString());
                     mNotiCard.setAction(PendingIntent.getActivity(
                             getApplicationContext(), 0, notiIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
                     mNotiCardView = new CardBuilder(getApplicationContext(), CardBuilder.Layout.EMBED_INSIDE)
@@ -389,26 +317,6 @@ public class LiveCardService extends Service {
     }
 
     /**
-     * IDs for various EyeGestures
-     */
-    private static class GestureIds {
-        public int BLINK_ID;
-        public int WINK_ID;
-        public int DOUBLE_BLINK_ID;
-        public int DOUBLE_WINK_ID;
-        public int LOOK_AT_SCREEN_ID;
-        public int LOOK_AWAY_FROM_SCREEN_ID;
-
-        public GestureIds() {
-            BLINK_ID = EyeGesture.BLINK.getId();
-            WINK_ID = EyeGesture.WINK.getId();
-            DOUBLE_BLINK_ID = EyeGesture.DOUBLE_BLINK.getId();
-            DOUBLE_WINK_ID = EyeGesture.DOUBLE_WINK.getId();
-            LOOK_AT_SCREEN_ID = EyeGesture.LOOK_AT_SCREEN.getId();
-            LOOK_AWAY_FROM_SCREEN_ID = EyeGesture.LOOK_AWAY_FROM_SCREEN.getId();
-        }
-    }
-    /**
      * @param encodedString
      * @return bitmap (from given string)
      */
@@ -463,25 +371,6 @@ public class LiveCardService extends Service {
                 }
             });
         }
-    }
-    public static boolean isNotificationGlanceEnabled(ContentResolver contentResolver) {
-        Uri uri = Uri.parse("content://com.google.android.glass.settings/system");
-        String[] projection = {"value"};
-        String selection = "name = ?";
-        String[] selectionArgs = {"notification_glance_enabled"};
-
-        Cursor cursor = contentResolver.query(uri, projection, selection, selectionArgs, null);
-        if (cursor != null) {
-            try {
-                if (cursor.moveToFirst()) {
-                    String value = cursor.getString(cursor.getColumnIndexOrThrow("value"));
-                    return Boolean.parseBoolean(value); // Convert "true"/"false" string to boolean
-                }
-            } finally {
-                cursor.close(); // Always close the cursor to prevent memory leaks
-            }
-        }
-        return false; // Default to false if not found or error occurs
     }
 
     public static Spannable notiText(String title, String text) {

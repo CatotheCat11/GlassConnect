@@ -6,16 +6,26 @@
 
 package com.cato.kdeconnect.Plugins.ReceiveNotificationsPlugin;
 
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.Bundle;
 import android.util.Base64;
 import android.util.Log;
 
+import androidx.core.content.ContextCompat;
+
+import com.cato.kdeconnect.Helpers.NotificationHelper;
 import com.cato.kdeconnect.LiveCardService;
 import com.cato.kdeconnect.NetworkPacket;
 import com.cato.kdeconnect.Plugins.Plugin;
 import com.cato.kdeconnect.Plugins.PluginFactory;
 import com.cato.kdeconnect.R;
+import com.cato.kdeconnect.UserInterface.NotificationActivity;
+import com.google.android.glass.app.ContextualNotification;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -144,23 +154,41 @@ public class ReceiveNotificationsPlugin extends Plugin {
             e.printStackTrace();
         }
 
-        /*no need because google glass notifications don't work
-        NotificationManager notificationManager = ContextCompat.getSystemService(context, NotificationManager.class);
+        if (LiveCardService.sInstance == null) {
+            Log.e("NotificationsPlugin", "Sinstance is null, cannot create notification intent");
+            return true;
+        }
+        Intent notiIntent = new Intent(LiveCardService.sInstance, NotificationActivity.class);
+        notiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
+                Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        notiIntent.putExtra("slideIn", true);
 
-        Notification noti = new NotificationCompat.Builder(context, NotificationHelper.Channels.RECEIVENOTIFICATION)
+        PendingIntent menuIntent = PendingIntent.getActivity(LiveCardService.sInstance, 1, notiIntent, PendingIntent.FLAG_IMMUTABLE);
+
+        NotificationManager notificationManager = ContextCompat.getSystemService(LiveCardService.sInstance, NotificationManager.class);
+
+        Notification.Builder notiBuilder = new Notification.Builder(LiveCardService.sInstance);
+        ContextualNotification style = new ContextualNotification(notiBuilder)
+                .setMenu(R.menu.noti_actions, menuIntent)
+                .setReveal(true);
+        style.setBuilder(notiBuilder);
+
+        Bundle extras = new Bundle();
+        extras.putBoolean("whitelist", true);
+
+        Notification noti = notiBuilder.setExtras(extras)
                 .setContentTitle(np.getString("appName"))
                 .setContentText(np.getString("ticker"))
                 .setTicker(np.getString("ticker"))
                 .setSmallIcon(R.drawable.ic_notification)
                 .setLargeIcon(largeIcon)
                 .setAutoCancel(true)
-                .setLocalOnly(true)  // to avoid bouncing the notification back to other kdeconnect nodes
-                .setDefaults(Notification.DEFAULT_ALL)
-                .setStyle(new NotificationCompat.BigTextStyle().bigText(np.getString("ticker")))
+                .setDefaults(Notification.DEFAULT_SOUND)
+                .setStyle(style)
+                .setFullScreenIntent(menuIntent, false)
                 .build();
 
-        NotificationHelper.notifyCompat(notificationManager, "kdeconnectId:" + np.getString("id", "0"), np.getInt("id", 0), noti);
-        */
+        NotificationHelper.notifyCompat(notificationManager, "kdeconnectId:" + np.getString("id", "0"), (int) System.currentTimeMillis(), noti);
         return true;
     }
 
