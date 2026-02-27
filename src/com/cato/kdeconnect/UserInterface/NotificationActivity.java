@@ -86,29 +86,24 @@ public class NotificationActivity extends Activity {
 
     private void addNotifications() {
         mCards = new ArrayList<CardBuilder>();
-        if (getIntent().hasExtra("notiList")) {
-            try {
-                notiList = LiveCardService.notificationList;
-                for (int i = notiList.length() - 1; i >= 0; i--) { //Reverse order to show latest notification first
-                    JSONObject noti = notiList.getJSONObject(i);
-                    Log.d("NotificationActivity", "Adding notification: " + noti.toString());
-                    CardBuilder card = new CardBuilder(this, CardBuilder.Layout.AUTHOR)
-                            .setHeading(noti.getString("title"))
-                            .setSubheading(noti.getString("appName"))
-                            .setText(noti.getString("text"))
-                            .setTimestamp(getTimeAgo(noti.optLong("time", 0)));
-                    if (noti.has("icon")) {
-                        card.setIcon(stringToBitmap(noti.getString("icon")));
-                    }
-                    mCards.add(card);
+        try {
+            notiList = LiveCardService.notificationList;
+            for (int i = notiList.length() - 1; i >= 0; i--) { //Reverse order to show latest notification first
+                JSONObject noti = notiList.getJSONObject(i);
+                Log.d("NotificationActivity", "Adding notification: " + noti.toString());
+                CardBuilder card = new CardBuilder(this, CardBuilder.Layout.AUTHOR)
+                        .setHeading(noti.getString("title"))
+                        .setSubheading(noti.getString("appName"))
+                        .setText(noti.getString("text"))
+                        .setTimestamp(getTimeAgo(noti.optLong("time", 0)));
+                if (noti.has("icon")) {
+                    card.setIcon(stringToBitmap(noti.getString("icon")));
                 }
-
-            } catch (JSONException e) {
-                throw new RuntimeException(e);
+                mCards.add(card);
             }
-        } else {
-            Log.w("NotificationActivity", "Notifications activity started without any notifications");
-            finish();
+
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
         }
     }
 
