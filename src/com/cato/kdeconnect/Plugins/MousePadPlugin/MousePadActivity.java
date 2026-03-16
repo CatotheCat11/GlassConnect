@@ -111,14 +111,14 @@ public class MousePadActivity extends Activity implements SensorEventListener {
     public void onSensorChanged(SensorEvent event) {
         float[] values = event.values;
 
-        float X = -values[1] * 70;
-        float Y = -values[0] * 70;
+        float X = -values[1] * 10;
+        float Y = -values[0] * 10;
 
-        if (X < 0.25 && X > -0.25) {
+        if (Math.abs(X) < 0.25f) {
             X = 0;
         }
 
-        if (Y < 0.25 && Y > -0.25) {
+        if (Math.abs(Y) < 0.25f) {
             Y = 0;
         }
 
