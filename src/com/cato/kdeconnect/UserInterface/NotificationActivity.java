@@ -198,27 +198,36 @@ public class NotificationActivity extends Activity {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.noti_actions, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        menu.findItem(R.id.menu_item_2).setVisible(true);
+        menu.findItem(R.id.menu_item_3).setVisible(true);
+        menu.findItem(R.id.menu_item_4).setVisible(true);
+        menu.findItem(R.id.menu_item_5).setVisible(true);
         try {
             JSONObject notiObject = notiList.getJSONObject(notiList.length() - (1 + mCardScrollView.getSelectedItemPosition()));
             if (notiObject.has("requestReplyId")) {
                 if (notiObject.getString("requestReplyId").isEmpty()) { // TODO: unecessary check? test to see if ok to remove
-                    menu.removeItem(R.id.menu_item_5);
+                    menu.findItem(R.id.menu_item_5).setVisible(false);
                 }
             } else {
-                menu.removeItem(R.id.menu_item_5);
+                menu.findItem(R.id.menu_item_5).setVisible(false);
             }
             if (!notiObject.has("actions")) {
-                menu.removeItem(R.id.menu_item_2);
-                menu.removeItem(R.id.menu_item_3);
-                menu.removeItem(R.id.menu_item_4);
+                menu.findItem(R.id.menu_item_2).setVisible(false);
+                menu.findItem(R.id.menu_item_3).setVisible(false);
+                menu.findItem(R.id.menu_item_4).setVisible(false);
             } else {
                 JSONArray actions = new JSONArray(notiObject.getString("actions"));
                 if (actions.length() == 1) {
-                    menu.removeItem(R.id.menu_item_3);
-                    menu.removeItem(R.id.menu_item_4);
+                    menu.findItem(R.id.menu_item_3).setVisible(false);
+                    menu.findItem(R.id.menu_item_4).setVisible(false);
                     menu.findItem(R.id.menu_item_2).setTitle(actions.getString(0));
                 } else if (actions.length() == 2) {
-                    menu.removeItem(R.id.menu_item_4);
+                    menu.findItem(R.id.menu_item_4).setVisible(false);
                     menu.findItem(R.id.menu_item_2).setTitle(actions.getString(0));
                     menu.findItem(R.id.menu_item_3).setTitle(actions.getString(1));
                 } else if (actions.length() == 3) {
@@ -232,6 +241,7 @@ public class NotificationActivity extends Activity {
         }
         return true;
     }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle item selection.
